@@ -1,0 +1,16 @@
+# Gateway log level for the Kong setup, kept separate from
+# overrides/log-levels.yml because Kong and Envoy share one compose
+# service (api-gw) but take a log level differently: Kong via an env var,
+# Envoy via the command array. Kong's entrypoint ignores command args
+# entirely, so a shared entry would silently do nothing here while still
+# showing up in docker inspect - misleading either way.
+#
+# scripts/set-log-levels.sh adds this file only when supabase-kong is the
+# running gateway. Envoy users get overrides/log-levels-envoy.yml instead.
+services:
+  api-gw:
+    environment:
+      # debug|info|notice|warn|error|crit|alert|emerg (image default: notice)
+      # NOTE: case-sensitive, lowercase only.
+      # nginx error_log only - proxy_access_log is unaffected.
+      KONG_LOG_LEVEL: "${SUPABASE_KONG_LOG_LEVEL:-notice}"
