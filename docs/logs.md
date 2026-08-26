@@ -254,7 +254,7 @@ curl -s http://localhost:9428/select/logsql/query \
 
 ```bash
 curl -s http://localhost:9428/select/logsql/query \
-  --data-urlencode 'query=_time:1h | count() by (appname)'
+  --data-urlencode 'query=_time:1h | stats by (appname) count() as total'
 ```
 
 See the

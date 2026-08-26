@@ -333,13 +333,14 @@ transforms:
       }
 
   # Host clock skew (NTP correction on boot, VM resume, RTC-less SBC)
-  # bakes future timestamps into Docker's json-log files permanently, and
-  # docker_logs replays those files from the start on every Vector restart.
-  # Loki rejects anything more than creation_grace_period (10m) ahead and
-  # drops the whole batch; VictoriaLogs accepts it silently and accumulates
-  # a duplicate on every replay. Clamping to ingest time keeps the event
-  # and keeps the store's time axis usable; the original is preserved so
-  # the skew is still traceable after the fact.
+  # bakes a future timestamp into a container's json-log file at the
+  # moment it's written. docker_logs does not replay history on Vector
+  # restart, so this is a one-time event per line, not a recurring one -
+  # but Loki still rejects anything more than creation_grace_period (10m)
+  # ahead and drops the whole batch, and VictoriaLogs still accepts it
+  # silently with no error. Clamping to ingest time keeps the event and
+  # keeps the store's time axis usable; the original is preserved so the
+  # skew is still traceable after the fact.
   timestamp_guard:
     type: remap
     inputs:

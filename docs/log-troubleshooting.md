@@ -160,8 +160,8 @@ sh run.sh recreate <service>
 ```
 
 On VictoriaLogs there's no error to see - it accepts future timestamps
-silently, so the same clock problem shows up as duplicated or
-oddly-ordered entries instead.
+silently, so the same clock problem shows up as an oddly-ordered entry
+instead, with no signal that anything was wrong.
 
 ---
 

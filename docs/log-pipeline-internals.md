@@ -57,25 +57,22 @@ expected: studio, meta, imgproxy and anything else unrouted lands there.
 **"Dropped" here means the event is discarded and never reaches a store -
 that is the meaning throughout this document.**
 
-## `docker_logs` replay semantics
+## `docker_logs` startup behavior
 
-`docker_logs` re-reads a container's entire log history from the start the
-moment it discovers that container, because Vector computes `since` from
-the container's `Created` time. This applies the same way whether Vector
-runs as its own Compose project or layered onto Supabase's own Compose
-files - it is a property of the `docker_logs` source itself, not of how
-this pipeline is deployed.
+`docker_logs` does **not** replay a container's log history on Vector
+restart. Vector computes `since` from its own process start time
+(`now_timestamp`, set once when the `docker_logs` source starts), not from
+the container's `Created` time - see
+[`src/sources/docker_logs/mod.rs#L388-L405`](https://github.com/vectordotdev/vector/blob/v0.56.0/src/sources/docker_logs/mod.rs#L388-L405)
+in Vector's own source if you want to check this against a different
+pinned version.
 
 | Event | Result |
 | --- | --- |
-| Vector restarts | Every container's history is replayed from the start |
-| `docker restart <service>` | Vector was already watching, resumes from `last_log`, no replay |
-| Container recreated | New json-log file, history gone |
+| Vector restarts | No replay - only new events from the restart point onward. Anything logged while Vector was down is permanently lost |
+| `docker restart <service>` | Vector was already watching, resumes tailing the same file, no gap |
+| Container recreated | New json-log file. Vector discovers the new container and captures its output from creation onward - nothing is lost, since the file has no earlier history to miss |
 | `docker compose up -d` after a config change | Container recreate, same as above |
-
-You can see this in `vector top`: after a container is recreated,
-`docker_host`'s `Events Out` runs ahead of its `Events In`, because the
-replayed lines were counted on the way in during an earlier window.
 
 Recreating a container also produces two errors in Vector's log as the old
 container disappears mid-stream. They are harmless:
@@ -86,19 +83,21 @@ Error in communication with Docker daemon. error=... 409 ...
 Failed to fetch container metadata. error=... 404 "No such container: ..."
 ```
 
-The practical consequence of replay: if a container's log file has a
-timestamp problem baked into it, every Vector restart re-ingests that
-problem. `timestamp_guard`, which sits downstream of every service
-transform, catches this at read time; it does not touch the underlying
-file.
+**The practical consequence: any Vector downtime is a permanent ingestion
+gap.** A deploy, a crash, or `make restart-vector` all lose whatever every
+routed container logged during that window - the lines are still on disk
+(`docker logs <service>` will show them) but no Vector restart will ever
+collect them retroactively.
 
-**Cause, briefly:** a host clock that jumps forward while a container is
+**Separately:** a host clock that jumps forward while a container is
 writing bakes a future timestamp permanently into that container's log
 file. This is not a frequent occurrence on a normal Linux server - it
 mainly shows up on first boot before NTP has synced (RTC-less SBCs) or
-after restoring a VM snapshot. `docker restart` does not fix it, since it
-appends to the same file; the container needs to be recreated. Full
-recovery steps:
+after restoring a VM snapshot. Since there is no replay, a bad timestamp
+written once is a one-time event for the store, not a recurring one -
+`timestamp_guard` (below) clamps it at ingestion. `docker restart` does
+not clean the underlying file, since it appends to the same one; the
+container needs to be recreated. Full recovery steps:
 [log-troubleshooting.md](log-troubleshooting.md#loki-rejects-logs-as-timestamp-too-new).
 
 ## `project_logs` preprocessing
@@ -212,7 +211,7 @@ rather than this project's. The differences:
 | Realtime metadata | No handling for `key=value` pairs; expects `time [level] msg` immediately | [`(?:\S+=\S+ )*` plus `parse_key_value`](#realtime-and-supavisors-variable-metadata) | Real lines carry a variable run of `key=value` pairs upstream's regex doesn't expect |
 | Postgres severity list | No `DEBUG` | `DEBUG` added | Postgres prints plain `DEBUG`, so those lines were landing as `LOG` |
 | Severity | Four different shapes across services | One normalized `.severity` on top | A single query could not span services |
-| Future timestamps | Not handled | Clamped by `timestamp_guard` | See [replay semantics](#docker_logs-replay-semantics) |
+| Future timestamps | Not handled | Clamped by `timestamp_guard` | See [startup behavior](#docker_logs-startup-behavior) |
 | Realtime health check filter | Matches literal `/health` in the request line; this deployment's actual probes hit `GET /`, so the match never fires | [Matches the actual observed probe path, plus catches response lines by status](#health-check-filtering) | Upstream's filter exists but doesn't match this deployment's real traffic |
 | Supavisor health check filter | No route, so no filter | [Filtered by path and status](#health-check-filtering) | Self-hosted only, not in upstream's routing at all |
 
@@ -384,7 +383,6 @@ Same event, different rejection policy:
 | --- | --- | --- |
 | Future timestamp | Rejects (`too new`) | Accepts silently |
 | Rejection visible | Explicit error in Loki's own logs | No signal |
-| Duplicate data (from a replay) | Rejected, does not accumulate | Accumulates |
 
 Loki being noisy here is an advantage - it surfaces the problem.
 VictoriaLogs staying quiet means the same underlying issue is invisible
@@ -397,7 +395,7 @@ both.
 | --- | --- | --- |
 | `chunk_idle_period` | `30s` | Loki's 30m default delays queryability. 30s suits a single-node deployment; a high-throughput cluster would tune this differently |
 | `flush_check_period` | `10s` | Same reason |
-| `max_chunk_age` | Loki's default (2h) | Narrowing it only makes ordinary replay more likely to be rejected, for no benefit |
+| `max_chunk_age` | Loki's default (2h) | No identified benefit to narrowing it - `unordered_writes: true` already handles out-of-order writes independent of this setting |
 
 Vector has no dedicated VictoriaLogs sink - the `elasticsearch` sink is
 pointed at VictoriaLogs' bulk endpoint instead (`/insert/elasticsearch/`,
