@@ -18,4 +18,4 @@ sinks:
       retry_attempts: 5
       retry_initial_backoff_secs: 1
       retry_max_duration_secs: 30
-      
+    # No disk buffer - see log-known-limitations.md

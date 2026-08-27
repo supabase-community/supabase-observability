@@ -15,6 +15,11 @@ sinks:
     compression: gzip
     healthcheck:
       enabled: false
+    request:
+      retry_max_duration_secs: 30
+    buffer:
+      - type: disk
+        max_size: 268435488  # Vector's documented minimum
     query:
       _msg_field: event_message
       _time_field: timestamp

@@ -12,6 +12,7 @@ services:
       # Must match a file in backends/vector/ (loki.yaml, victorialogs.yaml).
       - ./backends/vector/${BACKEND_LOGS:-victorialogs}.yaml:/etc/vector/backend.yaml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - vector_data:/var/lib/vector
     command: ["--config", "/etc/vector/base.yaml", "--config", "/etc/vector/backend.yaml"]
     environment:
       LOKI_ENDPOINT: ${LOKI_ENDPOINT:-http://loki:3100}
@@ -52,3 +53,4 @@ services:
 volumes:
   loki_data:
   victorialogs_data:
+  vector_data:

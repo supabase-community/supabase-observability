@@ -257,6 +257,23 @@ curl -s http://localhost:9428/select/logsql/query \
   --data-urlencode 'query=_time:1h | stats by (appname) count() as total'
 ```
 
+Quoting a value for an exact match tokenizes on `_` - a marker like
+`"batch_47_"` won't match a stored `batch_47_1`, even though the full
+string is there:
+
+```bash
+# Matches nothing, even though the value exists
+curl -s http://localhost:9428/select/logsql/query \
+  --data-urlencode 'query=appname:"supabase-envoy" AND "batch_47_" | stats count() as total'
+
+# Matches
+curl -s http://localhost:9428/select/logsql/query \
+  --data-urlencode 'query=appname:"supabase-envoy" AND batch_47_1 | stats count() as total'
+```
+
+Search the exact value, or drop the quotes and rely on the implicit
+substring match instead of phrase quoting.
+
 See the
 [LogsQL reference](https://docs.victoriametrics.com/victorialogs/logsql/)
 for the full syntax.
