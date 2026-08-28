@@ -103,7 +103,11 @@ Loki in place of VictoriaLogs:
 | Container | CPU | Memory |
 | --- | --- | --- |
 | `supabase-observability-vector` | 0.02% | 21.3MiB |
-| `supabase-observability-loki` | 0.53% | 34.8MiB |
+| `supabase-observability-loki` | 0.53% | 56.6MiB |
+
+Loki's idle memory climbs for a few minutes after startup before
+settling - measure after at least 10 minutes of no traffic, not
+immediately after `up-logs`.
 
 Both combinations stay well under 150MB total.
 
