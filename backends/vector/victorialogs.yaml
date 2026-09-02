@@ -1,0 +1,26 @@
+sinks:
+  # VictoriaLogs implements the Elasticsearch Bulk API for log
+  # ingestion. Vector has no dedicated victorialogs sink, so the
+  # `elasticsearch` sink type is used, pointed at VictoriaLogs' bulk
+  # endpoint. `appname` is the stream field that separates services
+  # at query time - same field driving the Loki label above.
+  vlogs:
+    type: elasticsearch
+    inputs:
+      - timestamp_guard
+    endpoints:
+      - "${VICTORIALOGS_ENDPOINT}/insert/elasticsearch/"
+    mode: bulk
+    api_version: v8
+    compression: gzip
+    healthcheck:
+      enabled: false
+    request:
+      retry_max_duration_secs: 30
+    buffer:
+      - type: disk
+        max_size: 268435488  # Vector's documented minimum
+    query:
+      _msg_field: event_message
+      _time_field: timestamp
+      _stream_fields: appname

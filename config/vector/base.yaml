@@ -1,0 +1,353 @@
+api:
+  enabled: true
+  address: 0.0.0.0:9001
+
+data_dir: /var/lib/vector  # sink disk buffers persist here
+
+sources:
+  docker_host:
+    type: docker_logs
+    exclude_containers:
+      - supabase-observability   # avoid ingesting our own stack's logs
+
+transforms:
+  # Strip Docker-internal fields, rename to match upstream's
+  # own log shape (event_message/appname)
+  project_logs:
+    type: remap
+    inputs:
+      - docker_host
+    source: |-
+      .project = "default"
+      .event_message = del(.message)
+      .appname = del(.container_name)
+      del(.container_created_at)
+      del(.container_id)
+      del(.source_type)
+      del(.stream)
+      del(.label)
+      del(.image)
+      del(.host)
+
+  router:
+    type: route
+    inputs:
+      - project_logs
+    route:
+      kong: '.appname == "supabase-kong"'
+      envoy: '.appname == "supabase-envoy"'
+      auth: '.appname == "supabase-auth"'
+      rest: '.appname == "supabase-rest"'
+      realtime: '.appname == "realtime-dev.supabase-realtime"'
+      storage: '.appname == "supabase-storage"'
+      functions: '.appname == "supabase-edge-functions"'
+      db: '.appname == "supabase-db"'
+      supavisor: '.appname == "supabase-pooler"'
+
+  kong_logs:
+    type: remap
+    inputs:
+      - router.kong
+    source: |-
+      req, err = parse_nginx_log(.event_message, "combined")
+      if err == null {
+          .timestamp = req.timestamp
+          .metadata.request.headers.referer = req.referer
+          .metadata.request.headers.user_agent = req.agent
+          .metadata.request.headers.cf_connecting_ip = req.client
+          .metadata.response.status_code = req.status
+          url, split_err = split(req.request, " ")
+          if split_err == null {
+              .metadata.request.method = url[0]
+              .metadata.request.path = url[1]
+              .metadata.request.protocol = url[2]
+          }
+      }
+      if err != null {
+        abort
+      }
+
+  kong_err:
+    type: remap
+    inputs:
+      - router.kong
+    source: |-
+      parsed, err = parse_nginx_log(.event_message, "error")
+      if err == null {
+          .timestamp = parsed.timestamp
+          .severity = parsed.severity
+          .metadata.request.host = parsed.host
+          .metadata.request.headers.cf_connecting_ip = parsed.client
+          url, split_err = split(parsed.request, " ")
+          if split_err == null {
+              .metadata.request.method = url[0]
+              .metadata.request.path = url[1]
+              .metadata.request.protocol = url[2]
+          }
+      }
+      if err != null {
+        abort
+      }
+
+  envoy_access_logs:
+    type: remap
+    inputs:
+      - router.envoy
+    source: |-
+      req, err = parse_nginx_log(.event_message, "combined")
+      if err == null {
+          .timestamp = req.timestamp
+          .metadata.request.headers.referer = req.referer
+          .metadata.request.headers.user_agent = req.agent
+          .metadata.request.headers.cf_connecting_ip = req.client
+          .metadata.response.status_code = req.status
+          url, split_err = split(req.request, " ")
+          if split_err == null {
+              .metadata.request.method = url[0]
+              .metadata.request.path = url[1]
+              .metadata.request.protocol = url[2]
+          }
+      }
+      if err != null {
+        abort
+      }
+
+  envoy_engine_logs:
+    type: remap
+    inputs:
+      - router.envoy
+    source: |-
+      parsed, err = parse_regex(.event_message, r'^\[(?P<time>[^\]]+)\]\[(?P<thread>\d+)\]\[(?P<level>\w+)\]\[(?P<component>[^\]]+)\] (?P<msg>.*)$')
+      if err == null {
+          ts, ts_err = parse_timestamp(parsed.time, format: "%Y-%m-%d %H:%M:%S%.f")
+          if ts_err == null {
+              .timestamp = ts
+          } else {
+              .metadata.timestamp_parse_error = parsed.time
+          }
+          .metadata.level = parsed.level
+          .metadata.component = parsed.component
+          .event_message = parsed.msg
+      }
+      if err != null {
+        abort
+      }
+
+  auth_logs:
+    type: remap
+    inputs:
+      - router.auth
+    source: |-
+      parsed, err = parse_json(.event_message)
+      if err == null {
+          .metadata.timestamp = parsed.time
+          .metadata = merge!(.metadata, parsed)
+          .event_message = parsed.msg
+          del(.metadata.msg)
+          del(.metadata.time)
+      }
+
+  rest_logs:
+    type: remap
+    inputs:
+      - router.rest
+    source: |-
+      parsed, err = parse_regex(.event_message, r'^(?P<time>.*?): (?P<msg>.*)$')
+      if err == null {
+          .event_message = parsed.msg
+          ts, ts_err = parse_timestamp(parsed.time, format: "%d/%b/%Y:%H:%M:%S %z")
+          if ts_err == null {
+              .timestamp = ts
+          }
+          .metadata.host = .project
+      }
+
+  realtime_logs_filtered:
+    type: filter
+    inputs:
+      - router.realtime
+    # Realtime's health probe is `GET /` (not `/health`), and Phoenix logs
+    # each request as two lines: the request (with the path) and the
+    # response (without it). Dropping 2xx/3xx responses removes the probe
+    # noise; 4xx/5xx responses are kept so errors stay visible. Latency
+    # for successful requests belongs in metrics, not logs.
+    condition: '!ends_with(string!(.event_message), "[info] GET /") && !match(string!(.event_message), r'' \[\w+\] Sent [23]\d\d '')'
+
+  realtime_logs:
+    type: remap
+    inputs:
+      - realtime_logs_filtered
+    source: |-
+      .metadata.project = del(.project)
+      parsed, err = parse_regex(.event_message, r'^(?P<time>\d+:\d+:\d+\.\d+) (?P<meta>(?:\S+=\S+ )*)\[(?P<level>\w+)\] (?P<msg>.*)$')
+      if err == null {
+          .event_message = parsed.msg
+          .metadata.level = parsed.level
+          if parsed.meta != "" {
+              kv, kv_err = parse_key_value(parsed.meta)
+              if kv_err == null {
+                  .metadata = merge(.metadata, remove!(kv, ["project"]))
+              }
+          }
+      }
+
+  functions_logs:
+    type: remap
+    inputs:
+      - router.functions
+    source: |-
+      .metadata.project_ref = del(.project)
+
+  storage_logs:
+    type: remap
+    inputs:
+      - router.storage
+    source: |-
+      .metadata.project = del(.project)
+      # Fallback for logs that carry no tenantId (startup messages).
+      # Request logs override this from the parsed payload below.
+      .metadata.tenantId = .metadata.project
+      parsed, err = parse_json(.event_message)
+      if err == null {
+          # Storage tags its own `project` (the tenant, e.g. "stub"), which
+          # would overwrite the shared "default" the other services use.
+          # tenantId already carries that value, so drop the key here.
+          .metadata = merge(.metadata, remove!(parsed, ["project"]))
+          .event_message = parsed.msg
+          .metadata.level = parsed.level
+          .metadata.timestamp = parsed.time
+          .metadata.context[0].host = parsed.hostname
+          .metadata.context[0].pid = parsed.pid
+          del(.metadata.hostname)
+          del(.metadata.pid)
+          del(.metadata.msg)
+          del(.metadata.time)
+      }
+
+  # Postgres doesn't tag severity consistently on stderr;
+  # normalize whatever's found into one error_severity field.
+  db_logs:
+    type: remap
+    inputs:
+      - router.db
+    source: |-
+      .metadata.host = "db-default"
+      .metadata.parsed.timestamp = .timestamp
+
+      # Postgres collapses DEBUG1-DEBUG5 into a single DEBUG label in log
+      # output; the five levels only exist as log_min_messages thresholds.
+      # Upstream's list omits DEBUG entirely, so debug lines fall through
+      # to the "info" default below and get stored as LOG.
+      parsed, err = parse_regex(.event_message, r'.*(?P<level>INFO|NOTICE|WARNING|ERROR|LOG|FATAL|PANIC?|DEBUG):.*', numeric_groups: true)
+
+      if err != null || parsed == null {
+        .metadata.parsed.error_severity = "info"
+      }
+      if parsed.level != null {
+       .metadata.parsed.error_severity = parsed.level
+      }
+      if .metadata.parsed.error_severity == "info" {
+          .metadata.parsed.error_severity = "log"
+      }
+      .metadata.parsed.error_severity = upcase!(.metadata.parsed.error_severity)
+
+  # Supavisor route upstream doesn't have - added here.
+  supavisor_logs_filtered:
+    type: filter
+    inputs:
+      - router.supavisor
+    # Supavisor is Phoenix too: request and response are separate lines and
+    # the response carries no path. Same rule as realtime - drop 2xx/3xx
+    # responses, keep 4xx/5xx.
+    condition: '!contains(string!(.event_message), "/api/health") && !contains(string!(.event_message), "GET /metrics") && !match(string!(.event_message), r'' \[\w+\] Sent [23]\d\d '')'
+  
+  supavisor_logs:
+    type: remap
+    inputs:
+      - supavisor_logs_filtered
+    source: |-
+      .metadata.project = del(.project)
+      parsed, err = parse_regex(.event_message, r'^(?P<time>\d+:\d+:\d+\.\d+) (?P<meta>(?:\S+=\S+ )*)\[(?P<level>\w+)\] (?P<msg>.*)$')
+      if err == null {
+          .event_message = parsed.msg
+          .metadata.level = parsed.level
+          if parsed.meta != "" {
+              kv, kv_err = parse_key_value(parsed.meta)
+              if kv_err == null {
+                  .metadata = merge(.metadata, remove!(kv, ["project"]))
+              }
+          }
+      }
+
+  # Every service tags severity differently: a string level, a Pino
+  # number, an uppercase Postgres severity, or nothing at all. Each
+  # transform keeps its own upstream-shaped field; this one adds a
+  # single normalized `.severity` so one query can span all services.
+  # Values: debug | info | warn | error | fatal
+  normalize_severity:
+    type: remap
+    inputs:
+      - kong_logs
+      - kong_err
+      - envoy_access_logs
+      - envoy_engine_logs
+      - auth_logs
+      - rest_logs
+      - realtime_logs
+      - storage_logs
+      - functions_logs
+      - db_logs
+      - supavisor_logs
+    source: |-
+      raw = ""
+      if is_integer(.metadata.level) {
+          n = to_int(.metadata.level) ?? 30
+          if n <= 20 { raw = "debug"
+          } else if n <= 30 { raw = "info"
+          } else if n <= 40 { raw = "warn"
+          } else if n <= 50 { raw = "error"
+          } else { raw = "fatal" }
+      } else if exists(.metadata.parsed.error_severity) {
+          raw = downcase(string!(.metadata.parsed.error_severity))
+      } else if exists(.metadata.level) {
+          raw = downcase(string!(.metadata.level))
+      } else if exists(.severity) {
+          raw = downcase(string!(.severity))
+      } else if exists(.metadata.response.status_code) {
+          code = to_int(.metadata.response.status_code) ?? 0
+          if code >= 500 { raw = "error"
+          } else if code >= 400 { raw = "warn"
+          } else { raw = "info" }
+      } else {
+          raw = "info"
+      }
+
+      if raw == "warning" || raw == "warn" {
+          .severity = "warn"
+      } else if raw == "error" || raw == "err" {
+          .severity = "error"
+      } else if raw == "fatal" || raw == "panic" || raw == "critical" || raw == "crit" || raw == "alert" || raw == "emerg" || raw == "emergency" {
+          .severity = "fatal"
+      } else if raw == "debug" || raw == "trace" || starts_with(raw, "debug") {
+          .severity = "debug"
+      } else {
+          .severity = "info"
+      }
+
+  # Host clock skew (NTP correction on boot, VM resume, RTC-less SBC)
+  # can bake a future timestamp into a log line. Loki rejects it outright;
+  # VictoriaLogs accepts it silently. Clamping to ingest time keeps both
+  # stores' time axis usable; the original is preserved for tracing.
+  timestamp_guard:
+    type: remap
+    inputs:
+      - normalize_severity
+    source: |-
+      ts = timestamp(.timestamp) ?? now()
+      if to_unix_timestamp(ts) - to_unix_timestamp(now()) > 60 {
+          if !exists(.metadata) {
+              .metadata = {}
+          }
+          .metadata.timestamp_future = ts
+          .timestamp = now()
+      }

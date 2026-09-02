@@ -1,0 +1,54 @@
+# Per-service log level control for operators/developers, driven by
+# .env. Independent of scripts/verify-logs.sh's own internal usage of
+# this same file (see that script - it sets env vars inline for its own
+# temporary check, without touching .env).
+#
+# Applied and reverted via scripts/set-log-levels.sh. All of these
+# require recreating the container: env vars and the `command:` array
+# only load at process start.
+#
+# The gateway has no entry here: Kong and Envoy share one compose service
+# (api-gw) but take a log level differently - Envoy via the command array,
+# Kong via an env var. They live in overrides/log-levels-envoy.yml and
+# overrides/log-levels-kong.yml; set-log-levels.sh adds whichever matches
+# the running gateway.
+#
+# supavisor has no entry here: its published image removes debug-level
+# logging at compile time, so no env var does anything.
+services:
+  rest:
+    environment:
+      # crit | error | warn | info | debug          (image default: error)
+      # NOTE: case-sensitive, lowercase only.
+      PGRST_LOG_LEVEL: "${SUPABASE_REST_LOG_LEVEL:-error}"
+
+  auth:
+    environment:
+      # panic | fatal | error | warn | info | debug | trace  (image default: info)
+      GOTRUE_LOG_LEVEL: "${SUPABASE_AUTH_LOG_LEVEL:-info}"
+
+  realtime:
+    environment:
+      # emergency | alert | critical | error | warning | warn | notice | info | debug
+      # NOTE: case-sensitive - String.to_existing_atom crashes the container on a bad value.
+      LOG_LEVEL: "${SUPABASE_REALTIME_LOG_LEVEL:-info}"
+
+  storage:
+    environment:
+      # trace | debug | info | warn | error | fatal   (image default: info)
+      # NOTE: case-sensitive, lowercase only.
+      LOG_LEVEL: "${SUPABASE_STORAGE_LOG_LEVEL:-info}"
+
+  functions:
+    environment:
+      # trace | debug | info | warn | error           (image default: info)
+      RUST_LOG: "${SUPABASE_FUNCTIONS_LOG_LEVEL:-info}"
+
+  db:
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      # debug5..debug1|info|notice|warning|error|log|fatal|panic
+      - log_min_messages=${SUPABASE_DB_LOG_LEVEL:-fatal}

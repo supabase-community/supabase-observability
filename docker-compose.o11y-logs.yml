@@ -1,0 +1,56 @@
+name: supabase-observability
+
+services:
+
+  vector:
+    image: timberio/vector:0.56.0-debian
+    container_name: supabase-observability-vector
+    restart: unless-stopped
+    volumes:
+      - ./config/vector/base.yaml:/etc/vector/base.yaml:ro
+      # ${BACKEND_LOGS} selects which sink file gets mounted.
+      # Must match a file in backends/vector/ (loki.yaml, victorialogs.yaml).
+      - ./backends/vector/${BACKEND_LOGS:-victorialogs}.yaml:/etc/vector/backend.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - vector_data:/var/lib/vector
+    command: ["--config", "/etc/vector/base.yaml", "--config", "/etc/vector/backend.yaml"]
+    environment:
+      LOKI_ENDPOINT: ${LOKI_ENDPOINT:-http://loki:3100}
+      VICTORIALOGS_ENDPOINT: ${VICTORIALOGS_ENDPOINT:-http://victorialogs:9428}
+      ENVIRONMENT: ${ENVIRONMENT:-dev}
+    networks:
+      - default
+
+  loki:
+    image: grafana/loki:3.7.4
+    command:
+      - "-config.file=/etc/loki/local-config.yaml"
+      - "-config.expand-env=true"
+    environment:
+      LOGS_RETENTION_PERIOD: ${LOGS_RETENTION_PERIOD:-30d}
+    container_name: supabase-observability-loki
+    restart: unless-stopped
+    profiles: ["loki"]
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./config/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+
+  victorialogs:
+    image: victoriametrics/victoria-logs:v1.51.0
+    container_name: supabase-observability-victorialogs
+    restart: unless-stopped
+    profiles: ["victorialogs"]
+    ports:
+      - "127.0.0.1:9428:9428"
+    command:
+      - "--storageDataPath=/victorialogs-data"
+      - "--retentionPeriod=${LOGS_RETENTION_PERIOD:-30d}"
+    volumes:
+      - victorialogs_data:/victorialogs-data
+
+volumes:
+  loki_data:
+  victorialogs_data:
+  vector_data:

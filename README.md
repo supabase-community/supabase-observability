@@ -1,45 +1,73 @@
 # Supabase Observability
 
-Community-maintained, vendor-neutral observability for a
-[Supabase](https://github.com/supabase/supabase) instance running self-hosted —
-logs, metrics, and (where upstream emits them) traces through a single
-OpenTelemetry pipeline, surfaced in a purpose-built Grafana dashboard set.
+Community-maintained observability for self-hosted
+[Supabase](https://github.com/supabase/supabase). Metrics, logs, and traces
+collected into open-source backends. Grafana dashboards built around the
+Supabase services are planned - see [Status](#status) for what ships today.
 
-For any information regarding Supabase itself you can refer to the
+For anything about Supabase itself, see the
 [official documentation](https://supabase.com/docs).
 
-## What this adds
+## Why this exists
 
-Self-hosted already ships logs via Vector. This project adds metrics
-collection, dashboards, and correlation between the two — as one pipeline.
+Supabase Cloud has a strong observability story: a Metrics API, a Logs
+Explorer, and Log Drains. Self-hosting trades that platform layer for control
+over your own infrastructure, and this project fills it back in with
+open-source components you run yourself.
 
-Default stack: Grafana · VictoriaMetrics · VictoriaLogs · Vector · OpenTelemetry
-Collector. Every backend is swappable by editing one file under `exporters/`.
+## Status
 
-## How to use ?
+| Signal | State | Default components |
+| --- | --- | --- |
+| [Logs](docs/logs.md) | Available | Vector into VictoriaLogs, or Loki |
+| Metrics | Planned | OpenTelemetry Collector into VictoriaMetrics |
+| Traces | Planned | OpenTelemetry Collector, OTLP |
+| Dashboards | Planned | Grafana |
+| Alerting | Planned | vmalert, Alertmanager |
+| Kubernetes | Planned | Helm chart |
 
-You can find the documentation inside the [docs directory](docs/quick-start/README.md).
+Start here: [docs/README.md](docs/README.md)
 
-# Roadmap
+## How it runs
 
-- [ ] Core log path
-- [ ] Metrics plane
-- [ ] Dashboards
-- [ ] Alerting
-- [ ] Kubernetes
+```
+your machine
+├── supabase/docker/
+│     └── docker-compose.yml
+└── supabase-observability/
+      └── docker-compose.o11y-logs.yml
+                │
+                └── reads container logs via the Docker socket
+```
+
+`supabase/docker/` is your existing Supabase deployment and stays untouched.
+`supabase-observability/` is this project, its own Compose project.
+
+Logs, metrics, and traces are each a separate Compose file inside this
+project, so you run only the ones you want. This repo currently ships the
+logs one (`docker-compose.o11y-logs.yml`); metrics and traces will each add
+their own when they land, and you'll bring them up the same way, alongside
+whichever ones you already have running.
+
+## Replaceable backends
+
+Each signal's storage and visualization backend is chosen with one
+environment variable and one config file, separate from the collection
+logic itself. For logs, that's `BACKEND_LOGS` (`victorialogs` or `loki`) -
+see [docs/logs.md](docs/logs.md#configure). Point a signal at the default
+backend, or at infrastructure you already operate.
 
 ## Support
 
-This project is supported by the community and not officially supported by
-Supabase. Please do not create any issues on the official Supabase repositories
-if you face any problems using this project, but rather open an issue on this
-repository.
+Community-maintained, and separate from Supabase's official support. Please
+open issues on this repository rather than the Supabase repositories.
 
 ## Contributing
 
-You can contribute to this project by forking this repository and opening a
-pull request. See [docs/quick-start](docs/quick-start/README.md) for local setup.
+Fork the repository and open a pull request. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for ground rules and pre-PR checks, and
+[docs/README.md](docs/README.md) for local setup.
 
 ## License
 
-[Apache 2.0 License.](LICENSE)
+[Apache 2.0](LICENSE)
