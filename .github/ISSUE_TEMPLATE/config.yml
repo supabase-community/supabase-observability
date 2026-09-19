@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/supabase/supabase/issues
     about: Questions or bugs about Supabase, not this observability stack.
   - name: Security report
-    url: https://github.com/supabase-community/supabase-observability/blob/main/SECURITY.md
-    about: Don't file a security issue publicly — see SECURITY.md for how to report privately.
+    url: https://github.com/supabase-community/supabase-observability/security/advisories/new
+    about: Don't file a security issue publicly — report it privately here.

@@ -10,7 +10,7 @@ This repository ships configuration, Compose files, and scripts — no images, n
 
 ## Reporting
 
-Found something sensitive? Please don't open a public issue for it. Email jbyun0101@gmail.com instead, or reach out on the supabase-community Discord.
+Found something sensitive? Please don't open a public issue for it. Use GitHub's private vulnerability reporting instead: https://github.com/supabase-community/supabase-observability/security/advisories/new
 
 Include the log backend you're using, the Supabase version, and steps to reproduce.
 
