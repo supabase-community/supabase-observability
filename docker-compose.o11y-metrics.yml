@@ -1,0 +1,59 @@
+name: supabase-observability
+
+services:
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.153.0
+    container_name: supabase-observability-otel
+    restart: unless-stopped
+    volumes:
+      - ./config/otel-collector/base.yaml:/etc/otel/base.yaml:ro
+      # ${BACKEND_METRICS} selects which exporter file gets mounted.
+      # Must match a file in backends/otel-collector/ (victoriametrics.yaml).
+      - ./backends/otel-collector/${BACKEND_METRICS:-victoriametrics}.yaml:/etc/otel/backend.yaml:ro
+      # Bearer credential for Supavisor/Realtime scraping (ANON_KEY,
+      # signed with JWT_SECRET = METRICS_JWT_SECRET).
+      # TBD: generated from $SUPABASE_DIR/.env, not this project's .env.
+      # Script + doc step to follow before live verification.
+      - ./jwt:/etc/otel/jwt:ro
+    command: ["--config=/etc/otel/base.yaml", "--config=/etc/otel/backend.yaml"]
+    networks:
+      - default
+      - supabase_default
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.19.1
+    container_name: supabase-observability-postgres-exporter
+    restart: unless-stopped
+    # TBD: DATA_SOURCE_NAME sourced from $SUPABASE_DIR/.env's
+    # POSTGRES_PASSWORD via a generated, gitignored env file —
+    # same reasoning as the jwt file above. Direct connection to
+    # supabase-db (not through the pooler) to avoid skewing
+    # connection-pool stats. Not yet verified live.
+    env_file:
+      - .metrics-secrets.env
+    networks:
+      - default
+      - supabase_default
+
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.143.0
+    container_name: supabase-observability-vm
+    restart: unless-stopped
+    profiles: ["victoriametrics"]
+    command:
+      - "--storageDataPath=/victoria-metrics-data"
+      - "--retentionPeriod=${METRICS_RETENTION_PERIOD:-90d}"
+    ports:
+      - "127.0.0.1:8428:8428"
+    volumes:
+      - vm_data:/victoria-metrics-data
+    networks:
+      - default
+
+networks:
+  supabase_default:
+    external: true
+
+volumes:
+  vm_data:

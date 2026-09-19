@@ -1,0 +1,40 @@
+# Enables the metrics endpoints that Supabase ships disabled by default.
+# Applied to the Supabase stack, not this project's own compose file.
+#
+# realtime and supavisor need nothing here - their metrics endpoints are
+# on by default and only require a Bearer JWT, which the collector reads
+# from the generated jwt file.
+#
+# The gateway has no entry here: Envoy's admin listener serves both
+# /stats/prometheus and /config_dump (which exposes keys and JWTs in
+# plaintext) on the same port, so it needs a different approach than a
+# plain env var. Not yet resolved.
+#
+# All of these require recreating the container: env vars only load at
+# process start.
+services:
+  auth:
+    environment:
+      GOTRUE_METRICS_ENABLED: "true"
+      # Default exporter is opentelemetry, not prometheus - must be set
+      # explicitly. Serves on :9100 at path "/", not "/metrics".
+      GOTRUE_METRICS_EXPORTER: "prometheus"
+
+  rest:
+    environment:
+      # The admin server is off until this port is set.
+      PGRST_ADMIN_SERVER_PORT: "3001"
+      # Upstream changed the default bind to localhost, which silently
+      # breaks scraping from another container. Not documented upstream.
+      PGRST_ADMIN_SERVER_HOST: "0.0.0.0"
+
+  imgproxy:
+    environment:
+      IMGPROXY_PROMETHEUS_BIND: ":8081"
+
+  storage:
+    environment:
+      OTEL_METRICS_ENABLED: "true"
+      # Endpoint is our otel-collector's OTLP gRPC receiver, reachable
+      # over supabase_default since otel-collector joins that network.
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://supabase-observability-otel:4317"

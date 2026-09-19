@@ -1,0 +1,119 @@
+# ============================================================
+# Base configuration — receivers and processors.
+# This file is backend-agnostic and never changes when
+# switching backends. Exporters live in {backend}.yaml.
+# ============================================================
+
+receivers:
+
+  # Pull-based services: OTel Collector scrapes each /metrics endpoint.
+  prometheus:
+    config:
+      scrape_configs:
+
+        # Supavisor and Realtime require a Bearer JWT.
+        # ANON_KEY satisfies the check because it is signed
+        # with JWT_SECRET (= METRICS_JWT_SECRET).
+        - job_name: supabase-supavisor
+          metrics_path: /metrics
+          authorization:
+            type: Bearer
+            credentials_file: /etc/otel/jwt
+          static_configs:
+            - targets: ["supabase-pooler:4000"]
+              labels:
+                service: supavisor
+
+        - job_name: supabase-realtime
+          metrics_path: /metrics
+          authorization:
+            type: Bearer
+            credentials_file: /etc/otel/jwt
+          static_configs:
+            # Container name follows Supabase's own compose file
+            - targets: ["realtime-dev.supabase-realtime:4000"]
+              labels:
+                service: realtime
+
+        # Auth (GoTrue) serves metrics at "/" not "/metrics".
+        # Requires GOTRUE_METRICS_ENABLED=true and
+        # GOTRUE_METRICS_EXPORTER=prometheus on the Supabase side.
+        - job_name: supabase-auth
+          metrics_path: /
+          static_configs:
+            - targets: ["supabase-auth:9100"]
+              labels:
+                service: auth
+
+        # Postgres has no native Prometheus endpoint;
+        # postgres-exporter sidecar (in our compose) provides it.
+        - job_name: supabase-postgres
+          metrics_path: /metrics
+          static_configs:
+            - targets: ["postgres-exporter:9187"]
+              labels:
+                service: postgres
+
+        # Requires PGRST_ADMIN_SERVER_PORT=3001 AND
+        # PGRST_ADMIN_SERVER_HOST=0.0.0.0 on the Supabase side
+        # (upstream default bind is localhost — breaks scraping).
+        - job_name: supabase-rest
+          metrics_path: /metrics
+          static_configs:
+            - targets: ["supabase-rest:3001"]
+              labels:
+                service: rest
+
+        # Requires IMGPROXY_PROMETHEUS_BIND=:8081 on the Supabase side.
+        - job_name: supabase-imgproxy
+          metrics_path: /metrics
+          static_configs:
+            - targets: ["supabase-imgproxy:8081"]
+              labels:
+                service: imgproxy
+
+        # ── API gateway: Envoy is now default (2026-08-09), Kong is opt-in ──
+        - job_name: supabase-envoy
+          metrics_path: /stats/prometheus
+          static_configs:
+            - targets: ["supabase-envoy:9901"]
+              labels:
+                service: envoy
+
+        # Kong (opt-in, deprecated path). To switch: comment out the
+        # envoy job above and uncomment this block.
+        # - job_name: supabase-kong
+        #   metrics_path: /metrics
+        #   static_configs:
+        #     - targets: ["supabase-kong:8001"]
+        #       labels:
+        #         service: kong
+
+  # Push-based: Storage pushes via OTLP gRPC.
+  # Note: a pull endpoint also exists (PROMETHEUS_METRICS_ENABLED=true,
+  # admin port 5001, confirmed in admin-app.ts) — which path is final
+  # is still open (RFC §8 item 7).
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+
+  # Groups data points before export — fewer, larger requests.
+  batch:
+
+  # resource_detection (docker detector) intentionally omitted.
+  #
+  # It needs /var/run/docker.sock, and official collector images run
+  # as non-root since v0.40.0. The documented fix is --group-add
+  # <docker-gid>, but the required GID varies per host and has broken
+  # before on base-image changes shipped without release notes.
+  #
+  # Critically, a failing detector propagates its error and stops the
+  # collector from starting — so this would turn an optional host tag
+  # (host.name / os.type) into a single point of failure for the whole
+  # metrics pipeline.
+  #
+  # Not needed single-node, and Kubernetes uses different detectors
+  # (env, k8snode) anyway, so skipping it now creates no migration debt.

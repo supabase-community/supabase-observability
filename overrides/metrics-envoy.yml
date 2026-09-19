@@ -1,0 +1,28 @@
+# Exposes Envoy's Prometheus stats to the collector.
+#
+# Envoy's admin listener binds 127.0.0.1 by default, so nothing outside
+# the container can reach it. It also serves /config_dump, which contains
+# API keys and JWTs in plaintext, so it cannot simply be rebound to 0.0.0.0.
+#
+# allow_paths is Envoy's own mechanism for this: the listener is rebound
+# so the collector can reach it, and every admin path except /stats is
+# refused by Envoy itself. Filtering in a proxy in front of the admin port
+# instead would be unsafe - that is the shape of CVE-2025-24030, where
+# path traversal reached admin handlers past a /stats/prometheus-only rule.
+#
+# Applied through --config-yaml, which Envoy merges over the bootstrap
+# loaded with -c. Upstream's entrypoint ends with
+#   exec envoy -c /etc/envoy/envoy.yaml "$@"
+# so command args are appended, never replacing upstream's own config.
+services:
+  api-gw:
+    command:
+      - --config-yaml
+      - |
+        admin:
+          address:
+            socket_address:
+              address: 0.0.0.0
+              port_value: 9901
+          allow_paths:
+            - prefix: /stats
