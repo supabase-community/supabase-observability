@@ -27,6 +27,13 @@
 
 set -uo pipefail
 
+if (( BASH_VERSINFO[0] < 4 )); then
+  echo "This script needs bash 4 or newer; found ${BASH_VERSION}." >&2
+  echo "macOS ships bash 3.2. Install a newer one (e.g. 'brew install bash')" >&2
+  echo "and re-run with it." >&2
+  exit 1
+fi
+
 for _bin in docker curl jq; do
   command -v "$_bin" >/dev/null 2>&1 || {
     echo "Required command not found: ${_bin}"

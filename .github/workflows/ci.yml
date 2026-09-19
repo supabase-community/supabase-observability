@@ -1,0 +1,24 @@
+name: CI
+on: [pull_request, push]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n scripts/*.sh
+      - run: cp .env.example .env
+      - name: Compose and Vector config, both backends
+        run: |
+          for b in victorialogs loki; do
+            BACKEND_LOGS=$b COMPOSE_PROFILES=$b \
+              docker compose -f docker-compose.o11y-logs.yml config -q
+            docker run --rm \
+              -v "$PWD/config/vector:/cfg:ro" \
+              -v "$PWD/backends/vector:/backends:ro" \
+              -e ENVIRONMENT=ci \
+              -e LOKI_ENDPOINT=http://loki:3100 \
+              -e VICTORIALOGS_ENDPOINT=http://victorialogs:9428 \
+              timberio/vector:0.56.0-debian \
+              validate --no-environment /cfg/base.yaml /backends/$b.yaml
+          done

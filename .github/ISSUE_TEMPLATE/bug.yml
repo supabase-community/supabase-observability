@@ -1,0 +1,31 @@
+name: Bug report
+description: Something in this stack does not work as documented.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected, what you got, and how to reproduce it.
+    validations:
+      required: true
+  - type: input
+    id: backend
+    attributes:
+      label: Log backend
+      description: The value of BACKEND_LOGS (victorialogs or loki).
+    validations:
+      required: true
+  - type: input
+    id: supabase
+    attributes:
+      label: Supabase version
+      description: Release tag or commit of supabase/supabase you run against.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Vector output (optional)
+      description: docker logs supabase-observability-vector --tail 50
+      render: shell
