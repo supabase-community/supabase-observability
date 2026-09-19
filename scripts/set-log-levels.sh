@@ -16,6 +16,13 @@
 
 set -uo pipefail
 
+if (( BASH_VERSINFO[0] < 4 )); then
+  echo "This script needs bash 4 or newer; found ${BASH_VERSION}." >&2
+  echo "macOS ships bash 3.2. Install a newer one (e.g. 'brew install bash')" >&2
+  echo "and re-run with it." >&2
+  exit 1
+fi
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OVERRIDE="${REPO_ROOT}/overrides/log-levels.yml"
 OVERRIDE_ENVOY="${REPO_ROOT}/overrides/log-levels-envoy.yml"
