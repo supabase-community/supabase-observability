@@ -86,7 +86,10 @@ _compose_file="$(grep '^COMPOSE_FILE=' "${SUPABASE_DIR}/.env" 2>/dev/null | tail
 if [ -n "${_compose_file}" ]; then
   IFS=':' read -ra _cf_parts <<< "${_compose_file}"
   for _part in "${_cf_parts[@]}"; do
-    SUPABASE_COMPOSE_ARGS+=(-f "${SUPABASE_DIR}/${_part}")
+    case "$_part" in
+      /*) SUPABASE_COMPOSE_ARGS+=(-f "${_part}") ;;
+      *)  SUPABASE_COMPOSE_ARGS+=(-f "${SUPABASE_DIR}/${_part}") ;;
+    esac
   done
 else
   SUPABASE_COMPOSE_ARGS=(-f "${SUPABASE_DIR}/docker-compose.yml")

@@ -60,11 +60,18 @@ fi
 # pg17, s3, ...) stay in effect. Passing -f at all makes docker compose
 # ignore COMPOSE_FILE, so each entry has to be expanded by hand.
 SUPABASE_COMPOSE_ARGS=()
+METRICS_ENVOY_ACTIVE=false
 _compose_file="$(grep '^COMPOSE_FILE=' "${SUPABASE_DIR}/.env" 2>/dev/null | tail -1 | cut -d= -f2-)"
 if [ -n "${_compose_file}" ]; then
   IFS=':' read -ra _cf_parts <<< "${_compose_file}"
   for _part in "${_cf_parts[@]}"; do
-    SUPABASE_COMPOSE_ARGS+=(-f "${SUPABASE_DIR}/${_part}")
+    case "$_part" in
+      /*) SUPABASE_COMPOSE_ARGS+=(-f "${_part}") ;;
+      *)  SUPABASE_COMPOSE_ARGS+=(-f "${SUPABASE_DIR}/${_part}") ;;
+    esac
+    case "$_part" in
+      */metrics-envoy.yml|metrics-envoy.yml) METRICS_ENVOY_ACTIVE=true ;;
+    esac
   done
 else
   SUPABASE_COMPOSE_ARGS=(-f "${SUPABASE_DIR}/docker-compose.yml")
@@ -230,7 +237,9 @@ case "$ACTION" in
 
     COMPOSE_EXTRA=()
     if [[ " ${DIFF_SERVICES[*]} " == *" envoy "* ]]; then
-      COMPOSE_EXTRA=(-f "$OVERRIDE_ENVOY")
+      if [ "$METRICS_ENVOY_ACTIVE" != true ]; then
+        COMPOSE_EXTRA=(-f "$OVERRIDE_ENVOY")
+      fi
     elif [[ " ${DIFF_SERVICES[*]} " == *" kong "* ]]; then
       COMPOSE_EXTRA=(-f "$OVERRIDE_KONG")
     fi
