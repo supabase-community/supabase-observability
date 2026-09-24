@@ -22,7 +22,9 @@ services:
       - supabase_default
 
   postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:v0.19.1
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    # >= v0.20.0 required: older versions abort pg_settings collection on a
+    # NULL short_desc (supautils.disable_program), which also drops pg_stat_activity.
     container_name: supabase-observability-postgres-exporter
     restart: unless-stopped
     # TBD: DATA_SOURCE_NAME sourced from $SUPABASE_DIR/.env's
