@@ -1,0 +1,17 @@
+# VictoriaMetrics as the metrics store. docker-compose.o11y-metrics.yml
+# runs this as `metrics-store` when BACKEND_METRICS=victoriametrics.
+services:
+  metrics-store:
+    image: victoriametrics/victoria-metrics:v1.143.0
+    container_name: supabase-observability-vm
+    restart: unless-stopped
+    command:
+      - "--storageDataPath=/victoria-metrics-data"
+      - "--retentionPeriod=${METRICS_RETENTION_PERIOD:-90d}"
+    ports:
+      - "127.0.0.1:8428:8428"
+    volumes:
+      - vm_data:/victoria-metrics-data
+    networks:
+      default:
+        aliases: [victoriametrics]

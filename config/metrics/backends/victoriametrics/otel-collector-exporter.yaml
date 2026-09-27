@@ -1,15 +1,6 @@
-# ============================================================
-# Backend: VictoriaMetrics (bundled, default)
-#
-# Naming contract — these three are always the same word:
-#   filename         victoriametrics.yaml
-#   compose profile  profiles: ["victoriametrics"]
-#   container host   http://victoriametrics:8428
-#
-# To add a new backend, copy this file into backends/otel-collector/,
-# rename it, and keep that contract. `ls backends/otel-collector/`
-# = supported backends.
-# ============================================================
+# Where the collector sends metrics when BACKEND_METRICS=victoriametrics.
+# `victoriametrics` below is the network alias set in compose.yml, next
+# to this file.
 
 exporters:
   # VictoriaMetrics ingests via the Prometheus remote-write
@@ -26,7 +17,7 @@ exporters:
 service:
   pipelines:
     metrics:
-      # receivers/processors are defined in base.yaml;
+      # receivers/processors are defined in config/metrics/otel-collector.yaml;
       # OTel merges multiple --config files into one.
       receivers: [prometheus, otlp]
       processors: [batch]

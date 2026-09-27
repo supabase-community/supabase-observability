@@ -11,14 +11,21 @@ jobs:
       - name: Compose and Vector config, both backends
         run: |
           for b in victorialogs loki; do
-            BACKEND_LOGS=$b COMPOSE_PROFILES=$b \
+            BACKEND_LOGS=$b \
               docker compose -f docker-compose.o11y-logs.yml config -q
             docker run --rm \
-              -v "$PWD/config/vector:/cfg:ro" \
-              -v "$PWD/backends/vector:/backends:ro" \
+              -v "$PWD/config/logs:/cfg:ro" \
+              -v "$PWD/config/logs/backends:/backends:ro" \
               -e ENVIRONMENT=ci \
               -e LOKI_ENDPOINT=http://loki:3100 \
               -e VICTORIALOGS_ENDPOINT=http://victorialogs:9428 \
               timberio/vector:0.56.0-debian \
-              validate --no-environment /cfg/base.yaml /backends/$b.yaml
+              validate --no-environment /cfg/vector.yaml /backends/$b/vector-sink.yaml
+          done
+      - name: Compose config, metrics
+        run: |
+          touch jwt .metrics-secrets.env
+          for b in victoriametrics; do
+            BACKEND_METRICS=$b \
+              docker compose -f docker-compose.o11y-metrics.yml config -q
           done
