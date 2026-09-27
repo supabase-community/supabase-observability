@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Confirms all routed services are reaching the log store selected by
-# BACKEND_LOGS in .env. Does not modify .env or switch backends.
+# BACKEND_LOGS (shell, then .env, as Compose resolves it). Does not modify
+# .env or switch backends.
 #
 # Temporarily raises PGRST_LOG_LEVEL and log_min_messages on the
 # Supabase stack (see overrides/log-levels.yml) so quiet-by-default
@@ -105,7 +106,7 @@ fi
 GW_PORT="${GW_PORT:-8000}"
 GW="http://localhost:${GW_PORT}"
 
-BACKEND="$(grep '^BACKEND_LOGS=' "${REPO_ROOT}/.env" | tail -1 | cut -d= -f2-)"
+BACKEND="${BACKEND_LOGS:-$(grep '^BACKEND_LOGS=' "${REPO_ROOT}/.env" 2>/dev/null | tail -1 | cut -d= -f2-)}"
 BACKEND="${BACKEND:-victorialogs}"
 
 check_loki=0
@@ -114,7 +115,7 @@ case "${BACKEND}" in
   loki)         check_loki=1 ;;
   victorialogs) check_vl=1 ;;
   *)
-    echo "Unrecognized BACKEND_LOGS=${BACKEND} in .env."
+    echo "Unrecognized BACKEND_LOGS=${BACKEND}."
     echo "Expected one of: victorialogs, loki."
     exit 2
     ;;
@@ -162,7 +163,7 @@ if [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "${GW}/rest/v1/")" =
   echo "missing even if the pipeline is fine. Check that the gateway published"
   echo "its port:"
   echo "  docker port supabase-kong     # or supabase-envoy"
-  echo "See docs/log-troubleshooting.md if the output is empty."
+  echo "See docs/logs/troubleshooting.md if the output is empty."
   echo
 fi
 
@@ -289,7 +290,7 @@ if [ "$check_vl" -eq 1 ]; then
   echo "      --data-urlencode 'query=appname:\"supabase-auth\" AND _time:[${query_start}, now]'"
 fi
 echo
-echo "Query patterns by symptom: docs/log-troubleshooting.md"
+echo "Query patterns by symptom: docs/logs/troubleshooting.md"
 echo
 
 if [ "$fail" -eq 0 ]; then

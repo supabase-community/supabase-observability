@@ -6,7 +6,7 @@
 # Values come from $SUPABASE_DIR/.env, never from this project's own
 # .env — same rule verify-logs.sh and set-log-levels.sh follow.
 #
-# Re-run this whenever ANON_KEY or POSTGRES_PASSWORD rotates upstream;
+# Re-run this whenever ANON_KEY or POSTGRES_PASSWORD changes in Supabase's .env;
 # it always overwrites both files.
 #
 # Reads SUPABASE_DIR from .env, or set it inline to override, e.g.
