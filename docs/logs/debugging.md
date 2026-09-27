@@ -4,9 +4,9 @@ Tools for working on the pipeline itself - adding a parser, changing a
 transform, or finding where events disappear.
 
 If your app broke and you need the real error, you want
-[log-troubleshooting.md](log-troubleshooting.md) instead. If you want to
+[troubleshooting.md](troubleshooting.md) instead. If you want to
 know why the pipeline is shaped this way, see
-[log-pipeline-internals.md](log-pipeline-internals.md).
+[pipeline-internals.md](pipeline-internals.md).
 
 ## Every command below needs two things
 
@@ -44,7 +44,7 @@ A drop is not automatically a bug: `kong_logs`/`kong_err` and
 `envoy_access_logs`/`envoy_engine_logs` are supposed to drop most of what
 they receive, since each pair acts as the other's filter. Check the
 abort-vs-graceful table in
-[log-pipeline-internals.md](log-pipeline-internals.md#failure-behavior-abort-vs-graceful)
+[pipeline-internals.md](pipeline-internals.md#failure-behavior-abort-vs-graceful)
 before treating a gap as a defect.
 
 ## `vector vrl` - test a parser against a real line
@@ -101,16 +101,16 @@ docker logs supabase-observability-vector 2>&1 | grep -i "mapping failed"
 
 ## Validating a config change before restarting
 
-Both files together - `base.yaml` has no sinks, so it doesn't validate
-alone:
+Both files together - `base.yaml` (`config/logs/vector.yaml`) has no
+sinks, so it doesn't validate alone:
 
 ```bash
 docker exec supabase-observability-vector vector validate \
   --no-environment /etc/vector/base.yaml /etc/vector/backend.yaml
 ```
 
-Vector doesn't reload config on its own. After editing anything under
-`config/vector/`:
+Vector doesn't reload config on its own. After editing
+`config/logs/vector.yaml` or a backend's `vector-sink.yaml`:
 
 ```bash
 make restart-vector
@@ -136,7 +136,7 @@ docker inspect supabase-auth --format '{{.LogPath}}'
 `docker inspect` - a container can report `healthy` with its intended port
 binding visible in `HostConfig.PortBindings` while never having actually
 bound it. See
-[log-troubleshooting.md](log-troubleshooting.md#everything-looks-healthy-but-nothing-responds).
+[troubleshooting.md](troubleshooting.md#everything-looks-healthy-but-nothing-responds).
 
 ## Counting results
 

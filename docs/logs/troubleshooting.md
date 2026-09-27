@@ -5,7 +5,7 @@ Supabase service caused it. This maps symptoms to where the real error lives.
 
 All queries go in the VictoriaLogs UI at
 `http://localhost:9428/select/vmui/`, or over HTTP with `curl` (see
-[logs.md](logs.md#querying-victorialogs)).
+[README.md](README.md#querying-victorialogs)).
 
 ## Start here
 
@@ -122,16 +122,16 @@ raises no error.
 
 Field names differ too. VictoriaLogs flattens nested objects into dotted
 keys (`metadata.req.method`), Loki stores the event as one JSON blob that
-has to be unwrapped first. See [log-fields.md](log-fields.md#how-fields-are-stored).
+has to be unwrapped first. See [fields.md](fields.md#how-fields-are-stored).
 
 **3. The service hasn't logged anything.** Several are quiet by default - see
-[log-levels.md](log-levels.md). Confirm with `docker logs <container>`
+[levels.md](levels.md). Confirm with `docker logs <container>`
 before assuming the pipeline is at fault.
 
 **4. Loki only: not flushed to disk yet.** Loki buffers incoming lines in
 memory and only writes them out - "flushes" them - once a batch (a *chunk*)
 goes idle. Its own default `chunk_idle_period` is 30 minutes, so a line
-isn't queryable until then. This repo ships `config/loki/loki-config.yaml`
+isn't queryable until then. This repo ships `config/logs/backends/loki/loki.yaml`
 with `chunk_idle_period: 30s`, so you shouldn't hit this - but if you
 wrote your own Loki config and `docker logs` shows events that queries
 can't find, check this setting.

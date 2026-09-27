@@ -11,7 +11,7 @@ starting anything sizeable. Small fixes are welcome without one.
   before claiming it works.
 
 Working on the pipeline itself and need `vector top`/`vrl`/`tap`? See
-[docs/log-debugging.md](docs/log-debugging.md).
+[docs/logs/debugging.md](docs/logs/debugging.md).
 
 ## Before opening a PR
 

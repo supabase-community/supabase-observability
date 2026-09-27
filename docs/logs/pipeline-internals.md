@@ -1,10 +1,10 @@
 # Pipeline internals
 
 Why the log pipeline is shaped the way it is. For setup see
-[logs.md](logs.md); for what each field means see
-[log-fields.md](log-fields.md); for what's currently broken see
-[log-known-limitations.md](log-known-limitations.md); for the tools to work
-on it see [log-debugging.md](log-debugging.md).
+[README.md](README.md); for what each field means see
+[fields.md](fields.md); for what's currently broken see
+[known-limitations.md](known-limitations.md); for the tools to work
+on it see [debugging.md](debugging.md).
 
 ## Event flow
 
@@ -98,7 +98,7 @@ written once is a one-time event for the store, not a recurring one -
 `timestamp_guard` (below) clamps it at ingestion. `docker restart` does
 not clean the underlying file, since it appends to the same one; the
 container needs to be recreated. Full recovery steps:
-[log-troubleshooting.md](log-troubleshooting.md#loki-rejects-logs-as-timestamp-too-new).
+[troubleshooting.md](troubleshooting.md#loki-rejects-logs-as-timestamp-too-new).
 
 ## `project_logs` preprocessing
 
@@ -126,7 +126,7 @@ del(.container_created_at, .container_id, .source_type,
     .stream, .label, .image, .host)
 ```
 
-This shape matches upstream Supabase's own convention, which is why it
+This shape matches upstream's `vector.yml`, which is why it
 follows this exact field naming rather than something this pipeline
 invented.
 
@@ -165,7 +165,7 @@ The "passes through unparsed" row is worth reading carefully. Those events
 reach the store, but without the fields their transform would have added,
 so a query on those fields will not find them. Realtime's startup shell
 trace is the clearest example - see
-[log-fields.md](log-fields.md#realtime-realtime-devsupabase-realtime).
+[fields.md](fields.md#realtime-realtime-devsupabase-realtime).
 
 ### Two spots where an edit could turn "unparsed" into "dropped"
 
@@ -197,23 +197,22 @@ Supabase's own self-hosted stack ships a Vector config
 routing and transform shape, so most of what follows is upstream's design
 rather than this project's. The differences:
 
-> Checked against `supabase/supabase`'s `docker/volumes/logs/vector.yml`
-> on `master` (verified 2026-08-16). Re-check this table if upstream has
-> touched that file since - the gateway routing in particular changed
-> shape once already when Envoy became the default.
+> Compared with `supabase/supabase`'s `docker/volumes/logs/vector.yml` on
+> `master` as of 2026-08-16. If that file has changed since, this table may
+> be out of date.
 
 | Area | Upstream | Here | Why |
 | --- | --- | --- | --- |
 | Envoy engine logs | Access logs routed through `kong_logs`/`kong_err`; engine-log format unhandled and dropped | [Separate transform added](#kong-and-envoy-each-split-into-two-transforms) | Engine format isn't nginx-shaped, so `kong_err`'s abort-on-failure drops it under upstream's routing |
-| Supavisor | Not present | Route added (see [Event flow](#event-flow)) | Self-hosted only; Cloud uses a different pooler |
+| Supavisor | Not present | Route added (see [Event flow](#event-flow)) | Supavisor is self-hosted Supabase's connection pooler, so its logs are routed like the other services' |
 | REST timestamp | Greedy `.*` | [Non-greedy `.*?`](#rests-colon-problem) | A message containing a second `": "` fails the parse and the event is lost |
 | Storage payload | 5 fields extracted | [Whole payload merged](#storage-keeps-its-whole-payload) | Upstream's version does not merge the `error` object, which carries the detail needed when a request fails |
 | Realtime metadata | No handling for `key=value` pairs; expects `time [level] msg` immediately | [`(?:\S+=\S+ )*` plus `parse_key_value`](#realtime-and-supavisors-variable-metadata) | Real lines carry a variable run of `key=value` pairs upstream's regex doesn't expect |
 | Postgres severity list | No `DEBUG` | `DEBUG` added | Postgres prints plain `DEBUG`, so those lines were landing as `LOG` |
 | Severity | Four different shapes across services | One normalized `.severity` on top | A single query could not span services |
 | Future timestamps | Not handled | Clamped by `timestamp_guard` | See [startup behavior](#docker_logs-startup-behavior) |
-| Realtime health check filter | Matches literal `/health` in the request line; this deployment's actual probes hit `GET /`, so the match never fires | [Matches the actual observed probe path, plus catches response lines by status](#health-check-filtering) | Upstream's filter exists but doesn't match this deployment's real traffic |
-| Supavisor health check filter | No route, so no filter | [Filtered by path and status](#health-check-filtering) | Self-hosted only, not in upstream's routing at all |
+| Realtime health check filter | Matches literal `/health` in the request line; this deployment's probes hit `GET /`, so it doesn't match them | [Matches the observed probe path, plus catches response lines by status](#health-check-filtering) | Keeps probe traffic out of the store |
+| Supavisor health check filter | No route, so no filter | [Filtered by path and status](#health-check-filtering) | Follows from adding the Supavisor route |
 
 Each service's own upstream-shaped fields are left untouched; the
 normalized `.severity` is added alongside rather than replacing them.
@@ -278,12 +277,12 @@ mostly boot-time noise. Two runs measured with `vector top`:
 
 243 of Envoy's 251 stored, 161 of Kong's 167. The remainder is what neither
 format matched. Read the shape rather than the numbers - yours will differ,
-and the split depends entirely on how much traffic the gateway has served
+and the split depends on how much traffic the gateway has served
 since it started. Kong's 3 access lines against 158 error lines is a stack
 that booted and then handled three requests.
 
 This drop is listed in
-[log-known-limitations.md](log-known-limitations.md). If you need a
+[known-limitations.md](known-limitations.md). If you need a
 gateway line the store does not have, read it directly:
 
 ```bash
@@ -334,11 +333,10 @@ the level tag - which keys, and how many, varies per line:
 
 The regex here uses `(?:\S+=\S+ )*` for that run and hands it to
 `parse_key_value`, so any number of keys in any combination matches.
-Upstream's regex for Realtime has no handling for this run at all - it
-expects `time [level] msg` immediately - so a real line with any
-`key=value` pairs in between simply doesn't match, and lands with no
-`metadata.level`. Supavisor isn't in upstream's routing at all, so there's
-no regex to compare against there.
+Upstream's regex for Realtime expects `time [level] msg` with nothing in
+between, so a line carrying `key=value` pairs doesn't match it and lands
+with no `metadata.level`. Upstream's `vector.yml` has no Supavisor route,
+so there's no regex to compare against there.
 
 Both services also emit their own `project=` key carrying the tenant name.
 It is removed before merging, so it cannot overwrite the shared `default`
@@ -347,21 +345,20 @@ value every other service uses.
 ### Storage keeps its whole payload
 
 `storage_logs` merges the entire parsed Pino payload into `.metadata`.
-Upstream's own config extracts only 5 fields and does not merge the whole
-`error` object, which carries the detail needed when a storage request
-fails.
+Upstream's `vector.yml` extracts 5 fields and doesn't merge the `error`
+object, which carries the detail needed when a storage request fails.
 
 Storage's numeric severity values are covered in
-[log-fields.md](log-fields.md#severity).
+[fields.md](fields.md#severity).
 
 ### Health check filtering
 
 Realtime and Supavisor both emit constant health check traffic. Upstream
 already has a filter stage for Realtime (`realtime_logs_filtered`,
 matching literal `/health` in the event text), but this deployment's
-actual health probes hit `GET /`, not `/health` - so upstream's filter
-never matches them, and they'd reach the store unfiltered. Supavisor has
-no upstream route at all, so there is nothing to filter there either.
+actual health probes hit `GET /`, not `/health`, so that filter doesn't
+match them, and they'd reach the store unfiltered. Upstream's `vector.yml`
+has no Supavisor route, so there is no filter to compare there.
 
 This pipeline's filter stage matches the actual observed probe path for
 each service, and drops response lines by status too (2xx/3xx dropped,
@@ -401,7 +398,8 @@ Vector has no dedicated VictoriaLogs sink - the `elasticsearch` sink is
 pointed at VictoriaLogs' bulk endpoint instead (`/insert/elasticsearch/`,
 port 9428).
 
-Sink healthchecks are asymmetric on purpose: `victorialogs.yaml` disables
-its healthcheck because VictoriaLogs only emulates the Elasticsearch bulk
+Sink healthchecks are asymmetric on purpose: the VictoriaLogs sink
+(`config/logs/backends/victorialogs/vector-sink.yaml`) disables its
+healthcheck because VictoriaLogs only emulates the Elasticsearch bulk
 API and returns 400 on Vector's standard healthcheck request. Loki does not
 have that problem, so its healthcheck stays on.

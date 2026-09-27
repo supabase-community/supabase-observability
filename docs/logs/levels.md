@@ -17,9 +17,9 @@ scripts/set-log-levels.sh apply
 
 This controls whether a service writes a line at all - not how that line
 gets classified once it's stored. For the stored `.severity` field, see
-[log-fields.md](log-fields.md#severity). For which services ship quiet and
+[fields.md](fields.md#severity). For which services ship quiet and
 why that matters, see
-[logs.md](logs.md#known-upstream-defaults-that-suppress-logs).
+[README.md](README.md#known-upstream-defaults-that-suppress-logs).
 
 | Service | Set in `.env` | Values | Default | Case |
 | --- | --- | --- | --- | --- |
@@ -39,7 +39,7 @@ polling queries out of the log; Postgres on its own defaults to `warning`.
 Leaving a variable unset in `.env` gives you the same value either way.
 
 Only one gateway row applies to you - see
-[logs.md](logs.md#gateway-routing) for which one your stack runs and how to
+[README.md](README.md#gateway-routing) for which one your stack runs and how to
 switch.
 
 ## Which level do you need
@@ -95,7 +95,7 @@ on top of everything `error` already gives you.
 The `STATEMENT:` line is attached to its `ERROR:` entry rather than being
 a message of its own, so it arrives and disappears with the error. It
 comes from `log_min_error_statement`, which Supabase leaves at its default
-of `error`. See [logs.md](logs.md#security-considerations) for what those
+of `error`. See [README.md](README.md#security-considerations) for what those
 lines contain.
 
 ### The gateways only control their own internal logs
@@ -127,8 +127,8 @@ Five services don't behave the way you'd expect from the table above:
 | Realtime | An invalid value crashes the container instead of being ignored |
 | Kong | Only the `error_log` is affected - access logs are written regardless of value |
 | Postgres | `debug5`-`debug1` never appear as a line label - Postgres always prints plain `DEBUG`. They only affect the threshold itself |
-| Supavisor | Nothing below `info` exists in the binary - it's stripped at compile time, so there's no way to enable it |
-| Edge Functions | Only the runtime's own internal logging is affected - whether or how user function `console.log` output is captured is unverified, and expected to change once upstream's event-worker rework lands |
+| Supavisor | Levels below `info` are removed from the published image at compile time, so setting a lower level has no effect |
+| Edge Functions | Only the runtime's own internal logging is affected. How user functions' `console.log` output is captured isn't covered on this page |
 
 Postgres and Envoy are set through their container's `command:` array
 rather than an environment variable. A `command:` change cannot be picked
@@ -148,7 +148,7 @@ turning on `debug` anywhere:
 Postgres doesn't need `debug` for this - at `error` or lower it already
 logs the failed statement (`STATEMENT:`) next to any `ERROR:` line,
 including literal values from the query. See
-[logs.md](logs.md#security-considerations) for the full breakdown.
+[README.md](README.md#security-considerations) for the full breakdown.
 
 ## Confirming what's applied
 
@@ -160,7 +160,7 @@ scripts/set-log-levels.sh status
 ```
 
 For the container inspection commands `status` uses under the hood, see
-[log-debugging.md](log-debugging.md#inspecting-containers).
+[debugging.md](debugging.md#inspecting-containers).
 
 ## What the scripts set for you
 
@@ -183,11 +183,13 @@ Realtime and Storage both read plain `LOG_LEVEL` - the names only differ
 on this project's side. Supavisor has no row because no variable reaches
 it.
 
-Everything on this page was checked against the images upstream's compose
-currently pins: postgrest v14.12, gotrue v2.189.0, realtime v2.102.3,
-storage-api v1.60.4, edge-runtime v1.74.0, postgres 17.6.1.136, supavisor
-2.9.5, envoy v1.39.0, and kong 3.9.3. Behavior can change between image
-versions - Auth's is already different on its main branch.
+Everything on this page applies to the images this Supabase stack currently
+pins: postgrest v14.17, gotrue v2.196.0, realtime v2.134.10,
+storage-api v1.74.0, edge-runtime v1.76.2, postgres 17.6.1.136, supavisor
+2.9.12, envoy v1.39.1. Kong's own version depends on which override you
+register - check `sh run.sh config` if you run it. Versions drift release
+to release; re-check against your own `$SUPABASE_DIR/docker-compose.yml`
+if something on this page doesn't match.
 
 ## Why the gateway has its own override file
 
@@ -202,8 +204,16 @@ So the gateway sits in `overrides/log-levels-envoy.yml` or
 `overrides/log-levels-kong.yml`, not the shared `overrides/log-levels.yml`.
 `scripts/set-log-levels.sh` adds whichever matches the running gateway.
 
+With metrics enabled, `overrides/metrics-envoy.yml` also sets Envoy's
+`command`, and Compose replaces a service's `command` across files rather
+than merging it. So while that file is in `COMPOSE_FILE`, the script
+leaves `log-levels-envoy.yml` out, and `metrics-envoy.yml` passes
+`--log-level` itself from the same `SUPABASE_ENVOY_LOG_LEVEL`. Nothing
+changes in how you set the level - see
+[../metrics/README.md](../metrics/README.md#changing-log-levels-with-metrics-on).
+
 If you switch gateways, reset the level first -
-[logs.md](logs.md#switching-gateway) covers why.
+[README.md](README.md#switching-gateway) covers why.
 
 ## Why the scripts expand `COMPOSE_FILE` by hand
 
@@ -214,7 +224,10 @@ entirely the moment any `-f` flag is passed, and both
 to layer `overrides/log-levels.yml` in.
 
 So each script reads `COMPOSE_FILE`, splits it on `:`, and passes every
-entry back as its own `-f`. Without that, applying a log level would
+entry back as its own `-f` - relative entries resolved against
+`SUPABASE_DIR`, absolute ones (such as the
+[metrics overrides](../metrics/README.md#enable-metrics-on-supabases-side)) as they
+are. Without that, applying a log level would
 silently drop whichever of your other Supabase overrides weren't also
 re-specified - the Envoy override among them, which is how a level applied
 while running Envoy can end up talking to a project that thinks it's
