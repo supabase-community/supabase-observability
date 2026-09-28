@@ -198,9 +198,14 @@ echo
 query_start=$(( RUN_START - 60 - LOOKBACK_MINUTES * 60 ))
 start_ns="${query_start}000000000"
 end_ns="$(date -u +%s)000000000"
-start_iso="$(date -u -d "@${query_start}" +%Y-%m-%dT%H:%M:%SZ)"
+# VictoriaLogs takes Unix seconds in a _time range, so queries use
+# query_start as-is. start_display is for the header only: GNU date,
+# then BSD/macOS date, then the raw seconds.
+start_display="$(date -u -d "@${query_start}" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+  || date -u -r "${query_start}" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+  || echo "${query_start}")"
 
-echo "Checking ${#SERVICES[@]} services, logs from ${start_iso} onward, against:"
+echo "Checking ${#SERVICES[@]} services, logs from ${start_display} onward, against:"
 [ "$check_loki" -eq 1 ] && echo "  Loki:         ${LOKI_URL}"
 [ "$check_vl" -eq 1 ]   && echo "  VictoriaLogs: ${VL_URL}"
 echo
@@ -220,7 +225,7 @@ loki_present() {
 vl_appnames=""
 if [ "$check_vl" -eq 1 ]; then
   vl_appnames=$(curl -s "${VL_URL}/select/logsql/query" \
-    --data-urlencode "query=_time:[${start_iso}, now] | fields appname" \
+    --data-urlencode "query=_time:[${query_start}, now] | fields appname" \
     | jq -r '.appname' 2>/dev/null | sort -u)
 fi
 
@@ -278,7 +283,7 @@ fi
 if [ "$check_vl" -eq 1 ]; then
   echo "  VictoriaLogs:"
   echo "    curl -s ${VL_URL}/select/logsql/query \\"
-  echo "      --data-urlencode 'query=appname:\"supabase-auth\" AND _time:[${start_iso}, now]'"
+  echo "      --data-urlencode 'query=appname:\"supabase-auth\" AND _time:[${query_start}, now]'"
 fi
 echo
 echo "Query patterns by symptom: docs/log-troubleshooting.md"
