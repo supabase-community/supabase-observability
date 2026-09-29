@@ -1,0 +1,23 @@
+# Rebinds Envoy admin to 0.0.0.0, exposing only /stats. Envoy's admin
+# listener serves /config_dump (leaks API keys/JWTs in plaintext) on the
+# same port as /stats/prometheus, so allow_paths restricts it to /stats.
+#
+# Also owns api-gw's --log-level: Compose replaces (not merges) a
+# service's `command` across files, so this must be the sole file
+# setting api-gw's command whenever metrics is active.
+# scripts/set-log-levels.sh skips overrides/log-levels-envoy.yml when
+# this file is present in COMPOSE_FILE.
+services:
+  api-gw:
+    command:
+      - --config-yaml
+      - |
+        admin:
+          address:
+            socket_address:
+              address: 0.0.0.0
+              port_value: 9901
+          allow_paths:
+            - prefix: /stats
+      - --log-level
+      - "${SUPABASE_ENVOY_LOG_LEVEL:-info}"

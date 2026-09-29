@@ -5,7 +5,7 @@ how to query it. Use this when a query returns nothing you expected.
 
 Queries are LogSQL, for the VictoriaLogs UI at
 `http://localhost:9428/select/vmui/` or over HTTP - see
-[logs.md](logs.md#querying-victorialogs). Loki differences are noted where
+[README.md](README.md#querying-victorialogs). Loki differences are noted where
 they apply.
 
 ## Fields on every event
@@ -18,7 +18,7 @@ Set in `project_logs`, before any service-specific parsing:
 | `_msg` | The log line, see [below](#_msg-vs-event_message) | `Schema cache loaded` |
 | `_time` | The field the store indexes on, see [below](#_time-and-metadatatimestamp) | `2026-08-10T12:32:44Z` |
 | `severity` | Normalized level, added at the end of the pipeline, see [below](#severity) | `warn` |
-| `project` | Always `default` self-hosted. Kept for shape compatibility with upstream Supabase's own pipeline | `default` |
+| `project` | Always `default` self-hosted. Kept for shape compatibility with upstream's `vector.yml` | `default` |
 
 `project` does not stay at the top level everywhere. Four services move it,
 so a query on `project` will not match them:
@@ -86,7 +86,7 @@ points:
 
 | | What it does | When |
 | --- | --- | --- |
-| `SUPABASE_*_LOG_LEVEL` | Decides whether the service writes a line at all | Before the line exists. Set in `.env`, see [log-levels.md](log-levels.md) |
+| `SUPABASE_*_LOG_LEVEL` | Decides whether the service writes a line at all | Before the line exists. Set in `.env`, see [levels.md](levels.md) |
 | `.severity` | Labels a line that was already written, so you can filter on it | After the line reaches the store. Added by this pipeline |
 
 Raising a service's log level makes it write more lines. It does not change
@@ -160,13 +160,13 @@ string, so they are directly comparable:
 | Storage | `2026-08-10T08:22:25.708Z` |
 
 Postgres keeps a copy of the ingest time on `metadata.parsed.timestamp` as
-well, matching upstream Supabase's own field layout.
+well, matching upstream's `vector.yml`.
 
 ## `_msg` vs `event_message`
 
 Query VictoriaLogs on `_msg`. `event_message` is Vector's internal name;
 the VictoriaLogs sink maps it to `_msg` through `_msg_field` in
-`backends/vector/victorialogs.yaml`.
+`config/logs/backends/victorialogs/vector-sink.yaml`.
 
 ```
 appname:"supabase-db" AND _msg:"division by zero"
@@ -204,9 +204,8 @@ appname:"supabase-envoy" AND metadata.request.path:"/rest/v1/orders"
 appname:"supabase-envoy" AND metadata.request.method:"POST" AND _time:1h
 ```
 
-The `cf_connecting_ip` name comes from upstream Supabase's own field
-layout, where Cloudflare sits in front of the gateway. Self-hosted there is
-no Cloudflare, so this holds whatever address nginx saw as the client,
+The `cf_connecting_ip` name is kept from upstream's `vector.yml`.
+Self-hosted, it holds whatever address the gateway saw as the client,
 usually a Docker bridge address.
 
 ### Envoy engine logs (`supabase-envoy`)
@@ -302,7 +301,7 @@ appname:"supabase-kong" AND metadata.response.status_code:*     # access only
 ```
 
 `KONG_LOG_LEVEL` controls the error log only. Access lines are written
-regardless of its value - see [log-levels.md](log-levels.md).
+regardless of its value - see [levels.md](levels.md).
 
 Most of Kong's volume is startup noise on the error stream. In one observed
 run, 167 lines produced 3 access lines and 158 parsed error lines.
@@ -350,7 +349,7 @@ appname:"supabase-auth" AND severity:"error" AND _time:15m
 ```
 
 `metadata.error_code` is the field to reach for on a failed sign-in. See
-[log-troubleshooting.md](log-troubleshooting.md#sign-in-fails-with-no-useful-detail).
+[troubleshooting.md](troubleshooting.md#sign-in-fails-with-no-useful-detail).
 
 `metadata.args` appears on lines where GoTrue formats a message from a
 template, holding the substituted values. The rendered text is already in
@@ -379,7 +378,7 @@ appname:"supabase-rest" AND _time:15m
 ```
 
 REST is also quiet by default (`PGRST_LOG_LEVEL=error`), so 4xx responses
-produce no line at all. See [log-levels.md](log-levels.md).
+produce no line at all. See [levels.md](levels.md).
 
 ### Realtime (`realtime-dev.supabase-realtime`)
 
@@ -421,7 +420,7 @@ status, so 4xx and 5xx responses stay visible. One consequence: for a
 successful non-probe request, the request line is stored and its response
 line is not, so the status code of a successful request is not in the
 store. See
-[log-pipeline-internals.md](log-pipeline-internals.md#health-check-filtering).
+[pipeline-internals.md](pipeline-internals.md#health-check-filtering).
 
 ### Storage (`supabase-storage`)
 
@@ -475,13 +474,13 @@ appname:"supabase-storage" AND metadata.error:* AND _time:15m
 The key holding the error identifier inside that object is `code` on some
 paths and `errorCode` on others, depending on where in storage-api it
 originated. Read the object whole rather than filtering on one key. See
-[log-troubleshooting.md](log-troubleshooting.md#file-upload-fails-with-a-vague-error).
+[troubleshooting.md](troubleshooting.md#file-upload-fails-with-a-vague-error).
 
 `metadata.tenantId` falls back to `default` on lines that carry no tenant,
 such as startup messages, and holds the real tenant on request lines.
 
-Upstream Supabase's own pipeline extracts five fields from these lines and
-drops the rest, including `error`. This pipeline merges the whole payload,
+Upstream's `vector.yml` extracts five fields from these lines and leaves
+out the rest, including `error`. This pipeline merges the whole payload,
 which is why everything above is queryable.
 
 ### Edge Functions (`supabase-edge-functions`)
@@ -501,8 +500,8 @@ appname:"supabase-edge-functions" AND _msg:"error" AND _time:15m
 appname:"supabase-edge-functions" AND _time:15m
 ```
 
-Structured logging for Edge Functions is waiting on upstream work, see
-[log-known-limitations.md](log-known-limitations.md).
+Structured logging for Edge Functions isn't covered yet, see
+[known-limitations.md](known-limitations.md#not-covered-yet).
 
 ### Postgres (`supabase-db`)
 
@@ -520,12 +519,12 @@ appname:"supabase-db" AND _msg:"division by zero"
 
 Postgres is quiet by default (`log_min_messages=fatal`), so query errors
 produce no line until the level is raised. See
-[log-levels.md](log-levels.md).
+[levels.md](levels.md).
 
 The severity regex has a known accuracy limit on lines whose query text
 contains a word like `ERROR`, and continuation lines (`STATEMENT`,
 `DETAIL`, `HINT`, `CONTEXT`) carry no severity of their own and land as
-`LOG`. See [log-known-limitations.md](log-known-limitations.md).
+`LOG`. See [known-limitations.md](known-limitations.md).
 
 ### Supavisor (`supabase-pooler`)
 
@@ -563,11 +562,11 @@ hostname. The connection fields above tell you which client it was.
 Supavisor has no runtime log level control, but it logs connection failures
 at `error` by default, so those are already there without changing
 anything. See
-[log-troubleshooting.md](log-troubleshooting.md#database-connections-fail-through-the-pooler).
+[troubleshooting.md](troubleshooting.md#database-connections-fail-through-the-pooler).
 
 Health check traffic is filtered before this transform, on the same rule as
 Realtime. See
-[log-pipeline-internals.md](log-pipeline-internals.md#health-check-filtering).
+[pipeline-internals.md](pipeline-internals.md#health-check-filtering).
 
 ## Diagnostic fields
 
@@ -585,14 +584,14 @@ metadata.timestamp_future:* AND _time:24h | count()
 ```
 
 A non-zero count means the host clock is, or was, wrong. See
-[log-troubleshooting.md](log-troubleshooting.md#loki-rejects-logs-as-timestamp-too-new).
+[troubleshooting.md](troubleshooting.md#loki-rejects-logs-as-timestamp-too-new).
 
 `metadata.timestamp_parse_error` has not yet been observed against a real
 malformed timestamp, so treat it as a route that exists rather than one
 with a track record. It is listed in
-[log-known-limitations.md](log-known-limitations.md).
+[known-limitations.md](known-limitations.md).
 
 ## Known gaps
 
-See [log-known-limitations.md](log-known-limitations.md) for the current
+See [known-limitations.md](known-limitations.md) for the current
 list, including where `.severity` is known to be imprecise.

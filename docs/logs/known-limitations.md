@@ -15,24 +15,24 @@ which.
 | REST and Edge Functions carry no severity field, so they always land as `severity:"info"` | Neither service prints a severity marker in its log line at all | Filter by `appname` and read the message |
 | `db_logs`'s severity regex is greedy - a `LOG:` line whose query text contains a word like `ERROR` can be misread as `error` | Upstream's `vector.yml`, same regex | Check the actual level in `_msg` |
 | Postgres continuation lines (`STATEMENT`, `DETAIL`, `HINT`, `CONTEXT`) fall through to `LOG` instead of inheriting their parent line's severity | Upstream's `vector.yml` does not tag these either | They immediately follow their `ERROR:` line, so query by time |
-| Gateway lines matching neither the access nor the error format are dropped by both transforms and never reach the store | Upstream's `vector.yml` uses the same abort-on-failure shape | Read them directly with `docker logs <gateway>`. See [pipeline internals](log-pipeline-internals.md#kong-and-envoy-each-split-into-two-transforms) for measured counts |
+| Gateway lines matching neither the access nor the error format are dropped by both transforms and never reach the store | Upstream's `vector.yml` uses the same abort-on-failure shape | Read them directly with `docker logs <gateway>`. See [pipeline internals](pipeline-internals.md#kong-and-envoy-each-split-into-two-transforms) for measured counts |
 | Realtime's startup shell trace does not match its log format, so those lines reach the store with no `metadata.level` | Realtime's entrypoint script, not a parser problem | Query `_msg` rather than `metadata.level` for startup lines |
 | A successful non-probe request to Realtime or Supavisor stores its request line but not its response line, so the status code is missing | This pipeline's health check filter, which judges responses by status | Failing requests keep both lines. For success rates, use metrics rather than logs |
-| A quoted LogSQL phrase ending in `_` (e.g. `"prefix_"`) matches nothing, even when a value like `prefix_1` is stored - VictoriaLogs tokenizes on `_` | VictoriaLogs' own tokenizer, not this pipeline | Search the exact value, or drop the quotes. See [logs.md](logs.md#querying-victorialogs) |
+| A quoted LogSQL phrase ending in `_` (e.g. `"prefix_"`) matches nothing, even when a value like `prefix_1` is stored - VictoriaLogs tokenizes on `_` | VictoriaLogs' own tokenizer, not this pipeline | Search the exact value, or drop the quotes. See [README.md](README.md#querying-victorialogs) |
 
 ## Issues in how the pipeline behaves
 
 | Issue | Where it's from | Status |
 | --- | --- | --- |
 | `.stream` (stdout vs stderr) is deleted in `project_logs`, so that distinction never reaches the store | Matches upstream's own log shape | Not planned - would diverge from upstream's field set |
-| Timestamp basis differs per service - some parse `_time` from the log body, others keep Docker's collection time, see [log-fields.md](log-fields.md#_time-and-metadatatimestamp) | Mostly upstream's `vector.yml`, same split | Design decision needed if this needs unifying |
-| Vector downtime (deploy, crash, restart) is a permanent gap in every routed service's logs - `docker_logs` does not replay history on restart | Vector's own source behavior, not Supabase-specific | No workaround at the pipeline level. The lines still exist in each container's own log file (`docker logs <service>`) if you need them. See [pipeline internals](log-pipeline-internals.md#docker_logs-startup-behavior) |
+| Timestamp basis differs per service - some parse `_time` from the log body, others keep Docker's collection time, see [fields.md](fields.md#_time-and-metadatatimestamp) | Mostly upstream's `vector.yml`, same split | Design decision needed if this needs unifying |
+| Vector downtime (deploy, crash, restart) is a permanent gap in every routed service's logs - `docker_logs` does not replay history on restart | Vector's own source behavior, not Supabase-specific | No workaround at the pipeline level. The lines still exist in each container's own log file (`docker logs <service>`) if you need them. See [pipeline internals](pipeline-internals.md#docker_logs-startup-behavior) |
 | `envoy_engine_logs`'s malformed-timestamp handling has never been observed running against a real malformed timestamp | This pipeline's own code (upstream has no transform for Envoy's engine-log format) | Compiles and passes `vector validate`; not known to be broken, just not confirmed live |
 | A backend outage beyond what the sink's buffer can hold still loses whatever was generated during it. `retry_max_duration_secs` (30s) governs how long a single batch retries before being discarded - this value is Vector's own default, unchanged, and now stated explicitly on both sinks rather than left implicit on one | Vector's own defaults, not Supabase-specific | VictoriaLogs' sink uses a disk buffer; confirmed live to survive a full 5-minute outage without loss. Loki's sink could not get the same treatment - see next row |
-| Vector fails to shut down cleanly (hangs indefinitely) if the `loki` sink is configured with a disk buffer | Bug in Vector's own disk buffer writer-close signaling, specific to `StreamSink`-based sinks. `loki` uses this pattern; `elasticsearch` (VictoriaLogs' sink type) does not | Reproduced 4/4 times live. `loki.yaml` stays on the memory buffer - no durability across a Vector restart, unlike VictoriaLogs. Worth reporting to Vector upstream |
-| `verify-logs.sh` confirms each service is reaching the store, not that each service's parsers produced fields | This pipeline's own scope choice | A service emitting only unparsed lines still passes - check fields with the queries in [log-fields.md](log-fields.md). Some services also produce traffic without a gateway request (Realtime's own health probe, direct `psql` calls to `db`), so their `✓` does not confirm the gateway path specifically |
+| With a disk buffer on the `loki` sink, Vector 0.56.0 hangs on shutdown instead of exiting | Vector's disk buffer with the `loki` sink type. The `elasticsearch` sink type used for VictoriaLogs shuts down normally with the same buffer | The Loki sink (`config/logs/backends/loki/vector-sink.yaml`) stays on the memory buffer, so unlike VictoriaLogs its queued events don't survive a Vector restart |
+| `verify-logs.sh` confirms each service is reaching the store, not that each service's parsers produced fields | This pipeline's own scope choice | A service emitting only unparsed lines still passes - check fields with the queries in [fields.md](fields.md). Some services also produce traffic without a gateway request (Realtime's own health probe, direct `psql` calls to `db`), so their `✓` does not confirm the gateway path specifically |
 
-## Fixed relative to upstream
+## Differences from upstream's vector.yml
 
 These are differences in upstream Supabase's own `vector.yml` that this
 pipeline does not carry. They are listed here because the behavior is
@@ -52,12 +52,11 @@ deliberate.
 | Envoy's engine-log format has no transform upstream - access logs already route through the shared Kong transforms, but engine lines hit `kong_err`'s abort-on-parse-failure and are dropped | Separate `envoy_engine_logs` transform added |
 | No Supavisor route | Route added |
 
-Where a difference looks like an upstream bug rather than a deliberate scope call, it is raised upstream separately rather than tracked here.
 
 ## Not covered yet
 
 Edge Functions structured logging, metrics, traces, dashboards, and
-Kubernetes are all tracked on the [repo README](../README.md#status), not
+Kubernetes are all tracked on the [repo README](../../README.md#status), not
 duplicated here.
 
 ## Reporting

@@ -1,0 +1,24 @@
+# Where the collector sends metrics when BACKEND_METRICS=victoriametrics.
+# `victoriametrics` below is the network alias set in compose.yml, next
+# to this file.
+
+exporters:
+  # VictoriaMetrics ingests via the Prometheus remote-write
+  # protocol — same exporter works for Mimir, Thanos, AMP.
+  prometheusremotewrite:
+    endpoint: http://victoriametrics:8428/api/v1/write
+
+    # Default (false) adds otel_scope_name and otel_scope_version to every
+    # series. Both are redundant: job, instance and service already identify
+    # the source, and otel_scope_version is the Collector version, so an
+    # upgrade would start a new series for every metric.
+    disable_scope_info: true
+
+service:
+  pipelines:
+    metrics:
+      # receivers/processors are defined in config/metrics/otel-collector.yaml;
+      # OTel merges multiple --config files into one.
+      receivers: [prometheus, otlp]
+      processors: [batch]
+      exporters: [prometheusremotewrite]

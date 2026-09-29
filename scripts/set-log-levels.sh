@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # Applies or resets per-service log verbosity via overrides/log-levels.yml,
-# driven by SUPABASE_*_LOG_LEVEL in .env. Independent of scripts/verify-logs.sh,
-# which uses the same override file but sets its own values inline without
-# touching .env.
+# driven by SUPABASE_*_LOG_LEVEL - a value set in the shell wins over .env,
+# as it does for Compose. Independent of scripts/verify-logs.sh, which uses
+# the same override file but sets its own values inline without touching
+# .env.
 #
-# `apply` only restarts services whose .env value differs from what's
+# `apply` only restarts services whose wanted value differs from what's
 # actually running right now - already-applied or unset services are left
 # alone. `reset` only restarts services that are currently NOT at their
 # upstream default. Either way, you get a diff before anything restarts.
 #
 # Usage:
-#   scripts/set-log-levels.sh status         # show .env vs live, no changes
+#   scripts/set-log-levels.sh status         # show wanted vs live, no changes
 #   scripts/set-log-levels.sh apply [--yes]
 #   scripts/set-log-levels.sh reset [--yes]
 
@@ -51,20 +52,22 @@ if [ ! -f "${SUPABASE_DIR}/docker-compose.yml" ]; then
   exit 2
 fi
 
-if [ ! -f "$ENV_FILE" ]; then
-  echo "No .env found at ${ENV_FILE}. Copy .env.example first."
-  exit 2
-fi
-
 # Mirror Supabase's own COMPOSE_FILE so overrides it has enabled (Envoy,
 # pg17, s3, ...) stay in effect. Passing -f at all makes docker compose
 # ignore COMPOSE_FILE, so each entry has to be expanded by hand.
 SUPABASE_COMPOSE_ARGS=()
+METRICS_ENVOY_ACTIVE=false
 _compose_file="$(grep '^COMPOSE_FILE=' "${SUPABASE_DIR}/.env" 2>/dev/null | tail -1 | cut -d= -f2-)"
 if [ -n "${_compose_file}" ]; then
   IFS=':' read -ra _cf_parts <<< "${_compose_file}"
   for _part in "${_cf_parts[@]}"; do
-    SUPABASE_COMPOSE_ARGS+=(-f "${SUPABASE_DIR}/${_part}")
+    case "$_part" in
+      /*) SUPABASE_COMPOSE_ARGS+=(-f "${_part}") ;;
+      *)  SUPABASE_COMPOSE_ARGS+=(-f "${SUPABASE_DIR}/${_part}") ;;
+    esac
+    case "$_part" in
+      */metrics-envoy.yml|metrics-envoy.yml) METRICS_ENVOY_ACTIVE=true ;;
+    esac
   done
 else
   SUPABASE_COMPOSE_ARGS=(-f "${SUPABASE_DIR}/docker-compose.yml")
@@ -114,7 +117,11 @@ declare -A COMPOSE_SERVICE=(
 wanted_value() {
   local svc="$1" var
   var="SUPABASE_$(echo "$svc" | tr '[:lower:]' '[:upper:]')_LOG_LEVEL"
-  grep "^${var}=" "$ENV_FILE" | tail -1 | cut -d= -f2- | sed 's/[[:space:]]*#.*//'
+  if [ -n "${!var:-}" ]; then
+    echo "${!var}"
+  else
+    grep "^${var}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | sed 's/[[:space:]]*#.*//'
+  fi
 }
 
 live_value() {
@@ -169,8 +176,8 @@ compose_names() {
 print_status() {
   local mode="$1"
   DIFF_SERVICES=()
-  printf "%-12s %-10s %-10s\n" "SERVICE" ".ENV" "LIVE"
-  printf "%-12s %-10s %-10s\n" "-------" "----" "----"
+  printf "%-12s %-10s %-10s\n" "SERVICE" "WANTED" "LIVE"
+  printf "%-12s %-10s %-10s\n" "-------" "------" "----"
   local svc wanted live shown_wanted shown_live
   for svc in "${SERVICES[@]}"; do
     wanted="$(wanted_value "$svc")"
@@ -184,7 +191,7 @@ print_status() {
     fi
     local note=""
     if [ "$live" != "NOT_RUNNING" ] && [ -n "$wanted" ] && [ "$wanted" != "$live" ]; then
-      note="  (.env differs - apply to change, or edit .env to match)"
+      note="  (differs - apply to change)"
     fi
     printf "%-12s %-10s %-10s%s\n" "$svc" "$shown_wanted" "$shown_live" "$note"
 
@@ -218,7 +225,7 @@ case "$ACTION" in
     print_status "apply"
     if [ ${#DIFF_SERVICES[@]} -eq 0 ]; then
       echo
-      echo "Nothing to apply - .env already matches what's running."
+      echo "Nothing to apply - wanted levels already match what's running."
       exit 0
     fi
     confirm_restart "${DIFF_SERVICES[*]}" || { echo "Aborted."; exit 1; }
@@ -230,7 +237,9 @@ case "$ACTION" in
 
     COMPOSE_EXTRA=()
     if [[ " ${DIFF_SERVICES[*]} " == *" envoy "* ]]; then
-      COMPOSE_EXTRA=(-f "$OVERRIDE_ENVOY")
+      if [ "$METRICS_ENVOY_ACTIVE" != true ]; then
+        COMPOSE_EXTRA=(-f "$OVERRIDE_ENVOY")
+      fi
     elif [[ " ${DIFF_SERVICES[*]} " == *" kong "* ]]; then
       COMPOSE_EXTRA=(-f "$OVERRIDE_KONG")
     fi

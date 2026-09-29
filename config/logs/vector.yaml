@@ -236,8 +236,8 @@ transforms:
 
       # Postgres collapses DEBUG1-DEBUG5 into a single DEBUG label in log
       # output; the five levels only exist as log_min_messages thresholds.
-      # Upstream's list omits DEBUG entirely, so debug lines fall through
-      # to the "info" default below and get stored as LOG.
+      # DEBUG is added here, so debug lines aren't stored as LOG via the
+      # "info" default below.
       parsed, err = parse_regex(.event_message, r'.*(?P<level>INFO|NOTICE|WARNING|ERROR|LOG|FATAL|PANIC?|DEBUG):.*', numeric_groups: true)
 
       if err != null || parsed == null {
@@ -251,7 +251,7 @@ transforms:
       }
       .metadata.parsed.error_severity = upcase!(.metadata.parsed.error_severity)
 
-  # Supavisor route upstream doesn't have - added here.
+  # Supavisor route, not present in upstream's vector.yml.
   supavisor_logs_filtered:
     type: filter
     inputs:

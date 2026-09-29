@@ -1,0 +1,49 @@
+name: supabase-observability
+
+services:
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.153.0
+    container_name: supabase-observability-otel
+    restart: unless-stopped
+    volumes:
+      - ./config/metrics/otel-collector.yaml:/etc/otel/base.yaml:ro
+      # Collector exporter for the chosen store: config/metrics/backends/<BACKEND_METRICS>/otel-collector-exporter.yaml
+      - ./config/metrics/backends/${BACKEND_METRICS:-victoriametrics}/otel-collector-exporter.yaml:/etc/otel/backend.yaml:ro
+      # Bearer credential for Supavisor/Realtime scraping: Supabase's
+      # ANON_KEY, signed with JWT_SECRET (= METRICS_JWT_SECRET). Written
+      # by scripts/generate-metrics-secrets.sh from $SUPABASE_DIR/.env.
+      - ./jwt:/etc/otel/jwt:ro
+    command: ["--config=/etc/otel/base.yaml", "--config=/etc/otel/backend.yaml"]
+    networks:
+      - default
+      - supabase_default
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    # >= v0.20.0 required: older versions abort pg_settings collection on a
+    # NULL short_desc (supautils.disable_program), which also drops pg_stat_activity.
+    container_name: supabase-observability-postgres-exporter
+    restart: unless-stopped
+    # DATA_SOURCE_NAME, written by scripts/generate-metrics-secrets.sh
+    # from $SUPABASE_DIR/.env's POSTGRES_PASSWORD. Connects to supabase-db
+    # directly, not through the pooler, so pool statistics aren't skewed.
+    env_file:
+      - .metrics-secrets.env
+    networks:
+      - default
+      - supabase_default
+
+  # The metrics store: config/metrics/backends/<BACKEND_METRICS>/compose.yml.
+  # Changing BACKEND_METRICS and running `up -d` replaces the running store.
+  metrics-store:
+    extends:
+      file: config/metrics/backends/${BACKEND_METRICS:-victoriametrics}/compose.yml
+      service: metrics-store
+
+networks:
+  supabase_default:
+    external: true
+
+volumes:
+  vm_data:
