@@ -14,6 +14,11 @@ services:
       # ANON_KEY, signed with JWT_SECRET (= METRICS_JWT_SECRET). Written
       # by scripts/generate-metrics-secrets.sh from $SUPABASE_DIR/.env.
       - ./jwt:/etc/otel/jwt:ro
+    environment:
+      # Soft memory target for the Go runtime: 80% of memory_limiter's
+      # limit_mib, so garbage collection works harder before the limiter
+      # has to refuse data.
+      GOMEMLIMIT: 320MiB
     command: ["--config=/etc/otel/base.yaml", "--config=/etc/otel/backend.yaml"]
     networks:
       - default

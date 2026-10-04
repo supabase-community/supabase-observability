@@ -39,6 +39,7 @@ otel-collector    --config=base.yaml --config=backend.yaml    (merged into one)
 │   └── otlp              gRPC on 0.0.0.0:4317, Storage pushes here
 │
 ├── processors                                       config/metrics/otel-collector.yaml
+│   ├── memory_limiter             refuses data above its soft limit, runs first
 │   ├── transform/storage_service  adds service="supabase-storage" to Storage's push
 │   └── batch                      groups data points into fewer, larger requests
 │

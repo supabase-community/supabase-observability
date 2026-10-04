@@ -295,8 +295,12 @@ up is 0, or a job is missing
 ├── supavisor / realtime ──────────────► jwt is missing, or ANON_KEY changed since it was written
 │                                        fix: regenerate, force-recreate otel-collector
 │
-└── postgres ──────────────────────────► .metrics-secrets.env missing or stale
-                                         fix: regenerate, force-recreate postgres-exporter
+├── postgres ──────────────────────────► .metrics-secrets.env missing or stale
+│                                        fix: regenerate, force-recreate postgres-exporter
+│
+└── jobs absent, collector up ─────────► it refused data above its memory limit
+                                         docker logs supabase-observability-otel-collector
+                                         see known-limitations.md
 ```
 
 Regenerating is covered in [How the secrets are generated](#how-the-secrets-are-generated).

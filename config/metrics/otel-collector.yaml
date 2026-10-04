@@ -99,6 +99,14 @@ receivers:
 
 processors:
 
+  # Refuses new data and forces garbage collection as memory nears the
+  # limit, so a burst makes the collector drop data instead of getting it
+  # OOM-killed. Keep it first in the pipeline.
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+
   # Groups data points before export — fewer, larger requests.
   batch:
 
