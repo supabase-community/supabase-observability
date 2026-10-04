@@ -116,9 +116,9 @@ idle stack produces nothing. Widen the window before concluding anything:
 appname:"supabase-storage" AND _time:24h | limit 1
 ```
 
-**2. Wrong label key for the store.** Loki uses `service`, VictoriaLogs uses
-`appname`. Querying `{appname="..."}` against Loki matches nothing and
-raises no error.
+**2. Wrong label key for the store.** Loki's label is `service`; querying
+`{appname="..."}` against Loki matches nothing and raises no error.
+VictoriaLogs has both `appname` and `service`.
 
 Field names differ too. VictoriaLogs flattens nested objects into dotted
 keys (`metadata.req.method`), Loki stores the event as one JSON blob that

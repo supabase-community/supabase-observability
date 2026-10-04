@@ -441,11 +441,16 @@ write it as `%2B`. `--data-urlencode` avoids both.
 | --- | --- | --- |
 | `job` | The job's `job_name`, e.g. `supabase-auth` | `storage_api`, from OTel's `service.name` |
 | `instance` | The target, e.g. `supabase-auth:9100` | `<container-id>:pid:1`, changes on every recreate |
-| `service` | Set on each job in the config, e.g. `auth` | Not set |
+| `service` | Set on each job in the config, e.g. `supabase-auth` | `supabase-storage`, added by the collector |
 
 `service` is a static label on each scrape job in
-`config/metrics/otel-collector.yaml`. Storage's
-push doesn't go through a scrape job, so filter it by `job`.
+`config/metrics/otel-collector.yaml`. Its values are the container names
+the log pipeline uses, so one name selects a service in both. For Postgres,
+Supavisor and Realtime they differ from `job`: `supabase-db`,
+`supabase-pooler` and `realtime-dev.supabase-realtime`. Storage's push
+doesn't go through a scrape job, so the collector's
+`transform/storage_service` processor adds `service="supabase-storage"`;
+`job="storage_api"` still finds it.
 
 ## Security considerations
 

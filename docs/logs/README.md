@@ -138,9 +138,10 @@ read and discarded by Vector, never reaching the log store.
 | `supabase-meta`, `supabase-studio`, `supabase-imgproxy` | No | No route is defined for them, so Vector collects and then drops their lines |
 | `supabase-observability-*` | No | Vector excludes itself and its own stack from what it collects |
 
-The container name becomes the `appname` field in VictoriaLogs (`service`
-in Loki - see [If you're using Loki](#if-youre-using-loki)), which is what
-you filter on at query time:
+The container name becomes the `appname` and `service` fields in VictoriaLogs
+(the `service` label in Loki - see
+[If you're using Loki](#if-youre-using-loki)). The queries below filter on
+`appname`:
 
 ```
 appname:"supabase-auth" AND _time:15m
@@ -334,8 +335,8 @@ curl -sG http://127.0.0.1:3100/loki/api/v1/query_range \
   | jq '.data.result[].stream'
 ```
 
-The same service is labelled differently in each store. Loki calls it
-`service`; VictoriaLogs calls it `appname`. The value is identical, so
+Loki indexes the container name as the `service` label. VictoriaLogs stores it
+as both `service` (the stream field) and `appname`. The value is identical, so
 filters translate directly - just swap the key:
 
 | Store | Filter |

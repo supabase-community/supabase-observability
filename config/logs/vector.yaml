@@ -12,7 +12,8 @@ sources:
 
 transforms:
   # Strip Docker-internal fields, rename to match upstream's
-  # own log shape (event_message/appname)
+  # own log shape (event_message/appname), and add `service`, a copy of
+  # `appname` that the sinks use as the store label
   project_logs:
     type: remap
     inputs:
@@ -21,6 +22,7 @@ transforms:
       .project = "default"
       .event_message = del(.message)
       .appname = del(.container_name)
+      .service = .appname
       del(.container_created_at)
       del(.container_id)
       del(.source_type)

@@ -20,5 +20,5 @@ service:
       # receivers/processors are defined in config/metrics/otel-collector.yaml;
       # OTel merges multiple --config files into one.
       receivers: [prometheus, otlp]
-      processors: [batch]
+      processors: [transform/storage_service, batch]
       exporters: [prometheusremotewrite]

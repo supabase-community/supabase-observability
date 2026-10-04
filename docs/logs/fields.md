@@ -15,6 +15,7 @@ Set in `project_logs`, before any service-specific parsing:
 | Field | What it is | Example |
 | --- | --- | --- |
 | `appname` | Container name. The routing key, and what you filter a single service on | `supabase-auth` |
+| `service` | A copy of `appname`. The Loki label and the VictoriaLogs stream field | `supabase-auth` |
 | `_msg` | The log line, see [below](#_msg-vs-event_message) | `Schema cache loaded` |
 | `_time` | The field the store indexes on, see [below](#_time-and-metadatatimestamp) | `2026-08-10T12:32:44Z` |
 | `severity` | Normalized level, added at the end of the pipeline, see [below](#severity) | `warn` |

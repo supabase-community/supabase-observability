@@ -1,6 +1,7 @@
 sinks:
-  # `appname` becomes the Loki stream label `service` - the same field
-  # VictoriaLogs uses as its stream field, just under a different key.
+  # The `service` field becomes the Loki stream label `service`, the same
+  # field VictoriaLogs uses as its stream field. `appname` holds the same
+  # value but is not a label.
   # Query with {service="supabase-auth"}, not {appname="..."}.
   # Unlike the VictoriaLogs sink, the healthcheck stays enabled: Loki
   # answers Vector's standard healthcheck request correctly.
@@ -12,7 +13,7 @@ sinks:
     encoding:
       codec: json
     labels:
-      service: "{{ appname }}"
+      service: "{{ service }}"
       env: "${ENVIRONMENT}"
     request:
       retry_attempts: 5

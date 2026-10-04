@@ -23,7 +23,7 @@ receivers:
           static_configs:
             - targets: ["supabase-pooler:4000"]
               labels:
-                service: supavisor
+                service: supabase-pooler
 
         - job_name: supabase-realtime
           metrics_path: /metrics
@@ -34,7 +34,7 @@ receivers:
             # Container name follows Supabase's own compose file
             - targets: ["realtime-dev.supabase-realtime:4000"]
               labels:
-                service: realtime
+                service: realtime-dev.supabase-realtime
 
         # Auth (GoTrue) serves metrics at "/" not "/metrics".
         # Requires GOTRUE_METRICS_ENABLED=true and
@@ -44,7 +44,7 @@ receivers:
           static_configs:
             - targets: ["supabase-auth:9100"]
               labels:
-                service: auth
+                service: supabase-auth
 
         # Postgres has no native Prometheus endpoint;
         # postgres-exporter sidecar (in our compose) provides it.
@@ -53,7 +53,7 @@ receivers:
           static_configs:
             - targets: ["postgres-exporter:9187"]
               labels:
-                service: postgres
+                service: supabase-db
 
         # Needs PGRST_ADMIN_SERVER_HOST=0.0.0.0 (overrides/metrics.yml);
         # Supabase's compose binds the admin server to localhost.
@@ -62,7 +62,7 @@ receivers:
           static_configs:
             - targets: ["supabase-rest:3001"]
               labels:
-                service: rest
+                service: supabase-rest
 
         # Requires IMGPROXY_PROMETHEUS_BIND=:8081 on the Supabase side.
         - job_name: supabase-imgproxy
@@ -70,7 +70,7 @@ receivers:
           static_configs:
             - targets: ["supabase-imgproxy:8081"]
               labels:
-                service: imgproxy
+                service: supabase-imgproxy
 
         # ── API gateway: Envoy is the default since self-hosted v0.8.0, Kong is opt-in ──
         - job_name: supabase-envoy
@@ -78,7 +78,7 @@ receivers:
           static_configs:
             - targets: ["supabase-envoy:9901"]
               labels:
-                service: envoy
+                service: supabase-envoy
 
         # Kong (opt-in override). To switch: comment out the
         # envoy job above and uncomment this block.
@@ -87,7 +87,7 @@ receivers:
         #   static_configs:
         #     - targets: ["supabase-kong:8001"]
         #       labels:
-        #         service: kong
+        #         service: supabase-kong
 
   # Push-based: Storage pushes via OTLP gRPC. Storage also has a pull
   # endpoint (PROMETHEUS_METRICS_ENABLED=true, admin port 5001); this
@@ -101,6 +101,15 @@ processors:
 
   # Groups data points before export — fewer, larger requests.
   batch:
+
+  # Storage pushes over OTLP, so its series arrive without the `service`
+  # label the scraped jobs get from their scrape config. Add it here, with
+  # the container name the log pipeline uses for Storage.
+  transform/storage_service:
+    metric_statements:
+      - context: datapoint
+        statements:
+          - set(attributes["service"], "supabase-storage") where resource.attributes["service.name"] == "storage_api"
 
   # resource_detection (docker detector) intentionally omitted.
   #
