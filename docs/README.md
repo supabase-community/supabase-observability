@@ -66,7 +66,7 @@ make up-metrics   # if you run metrics
 | --- | --- |
 | A running self-hosted Supabase instance | The `supabase/docker` directory, already up |
 | Docker Compose v2 | |
-| bash 4 or newer | `scripts/verify-logs.sh` and `scripts/set-log-levels.sh` use `declare -A` and `mapfile`. macOS ships bash 3.2 - see [Platform notes](logs/README.md#platform-notes) |
+| bash 4 or newer, for `scripts/set-log-levels.sh` | It uses `declare -A` and `mapfile`. macOS ships bash 3.2 - see [Platform notes](logs/README.md#platform-notes). `scripts/verify-logs.sh` also runs on bash 3.2 |
 | `curl`, `jq` | Used by `scripts/verify-logs.sh` to query the log store, and by the checks in [metrics/README.md](metrics/README.md#confirm-it-works) |
 | `make` | Optional, every command below has a plain Compose equivalent |
 

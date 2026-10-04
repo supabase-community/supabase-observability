@@ -416,5 +416,6 @@ into every container on the host, so treat the Vector container as trusted.
 
 - Shell examples in these docs use GNU coreutils syntax (Linux default).
   On macOS, `date -u -d '...'` in particular needs a BSD equivalent.
-- `scripts/verify-logs.sh` and `scripts/set-log-levels.sh` need bash 4 or
-  newer (`declare -A`, `mapfile`). macOS ships bash 3.2.
+- `scripts/set-log-levels.sh` needs bash 4 or newer (`declare -A`,
+  `mapfile`). macOS ships bash 3.2. `scripts/verify-logs.sh` also runs on
+  bash 3.2.
