@@ -127,7 +127,7 @@ variables in `overrides/metrics.yml`:
 | Variable | Value |
 | --- | --- |
 | `OTEL_METRICS_ENABLED` | `true` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://supabase-observability-otel:4317` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://supabase-observability-otel-collector:4317` |
 
 `PROMETHEUS_METRICS_ENABLED` isn't needed for this. It turns on Storage's
 separate pull endpoint on admin port `5001`, which this pipeline doesn't

@@ -1,10 +1,10 @@
-name: supabase-observability
+name: supabase-observability-metrics
 
 services:
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.153.0
-    container_name: supabase-observability-otel
+    container_name: supabase-observability-otel-collector
     restart: unless-stopped
     volumes:
       - ./config/metrics/otel-collector.yaml:/etc/otel/base.yaml:ro
@@ -46,4 +46,4 @@ networks:
     external: true
 
 volumes:
-  vm_data:
+  victoriametrics_data:

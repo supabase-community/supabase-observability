@@ -105,9 +105,9 @@ docker compose -f docker-compose.o11y-metrics.yml up -d
 
 | Container | Does |
 | --- | --- |
-| `supabase-observability-otel` | Scrapes and receives metrics, writes them to the metrics store |
+| `supabase-observability-otel-collector` | Scrapes and receives metrics, writes them to the metrics store |
 | `supabase-observability-postgres-exporter` | Serves Postgres statistics as a metrics endpoint |
-| `supabase-observability-vm` | Stores metrics |
+| `supabase-observability-victoriametrics` | Stores metrics |
 
 This binds one port on localhost: `8428` for VictoriaMetrics. The collector
 and `postgres-exporter` join Supabase's `supabase_default` network to reach
@@ -116,6 +116,10 @@ network name that follows from `name: supabase` in Supabase's own
 `docker-compose.yml`. If you run Supabase under a different project name
 (`COMPOSE_PROJECT_NAME` or `docker compose -p`), its network name changes
 with it.
+
+These containers run as the Compose project
+`supabase-observability-metrics`, separate from Supabase's and from the
+log pipeline's.
 
 ## Enable metrics on Supabase's side
 
@@ -263,7 +267,7 @@ What the overrides change, and why each one is needed:
 | PostgREST (`rest`) | `supabase-rest` | `PGRST_ADMIN_SERVER_HOST=0.0.0.0` | Supabase's compose sets `PGRST_ADMIN_SERVER_HOST: localhost`, which only the container itself can reach. The override also sets `PGRST_ADMIN_SERVER_PORT=3001`. Supabase's compose uses the same value; it's set here so the scrape target doesn't depend on it |
 | imgproxy | `supabase-imgproxy` | `IMGPROXY_PROMETHEUS_BIND=:8081` | Off unless set |
 | Envoy | `supabase-envoy` | Admin rebound to `0.0.0.0:9901`, restricted to `/stats` with `allow_paths` | Admin listens on `127.0.0.1` by default, and the same port serves `/config_dump` - see [Security considerations](#security-considerations) |
-| Storage | `storage_api` | `OTEL_METRICS_ENABLED=true`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://supabase-observability-otel:4317` | Storage pushes over OTLP rather than being scraped |
+| Storage | `storage_api` | `OTEL_METRICS_ENABLED=true`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://supabase-observability-otel-collector:4317` | Storage pushes over OTLP rather than being scraped |
 | Supavisor | `supabase-supavisor` | Nothing | On by default. Needs the Bearer JWT from `jwt` |
 | Realtime | `supabase-realtime` | Nothing | On by default. Needs the same Bearer JWT |
 | Postgres | `supabase-postgres` | Nothing | No endpoint of its own. This project's `postgres-exporter` connects straight to `supabase-db` and serves one |
@@ -496,7 +500,7 @@ checkout won't show it. `sh run.sh config` in `$SUPABASE_DIR` will.
 ## Platform notes
 
 - `supabase-auth`, `supabase-rest`, and this project's
-  `supabase-observability-otel` are distroless - no shell, no
+  `supabase-observability-otel-collector` are distroless - no shell, no
   `curl`/`wget`/`ls`, so `docker exec` into them fails. Read their
   settings with `docker inspect`, and reach their endpoints from a
   throwaway container on the same network:

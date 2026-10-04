@@ -33,6 +33,9 @@ docker compose -f docker-compose.o11y-logs.yml up -d
 This binds two ports on localhost only: `9428` for VictoriaLogs, or `3100`
 for Loki, depending on `BACKEND_LOGS`.
 
+These containers run as the Compose project `supabase-observability-logs`,
+separate from Supabase's and from the metrics pipeline's.
+
 ## Confirm it works
 
 ```bash
