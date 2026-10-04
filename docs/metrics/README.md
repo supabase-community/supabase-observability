@@ -483,6 +483,10 @@ trust boundary is anything the Docker daemon attaches to it - any Compose
 project declaring it `external: true`, or `docker network connect` - which
 in turn takes Docker socket access, effectively root on the host.
 
+**Edge Functions run on this network too.** They execute user-supplied code,
+and [Supabase's compose](https://github.com/supabase/supabase/blob/self-hosted/v0.8.2/docker/docker-compose.yml)
+gives the functions container `SUPABASE_SERVICE_ROLE_KEY`.
+
 **PostgREST's admin port serves more than metrics.** Rebinding it to
 `0.0.0.0` also makes `/live`, `/ready`, and `/schema_cache` reachable from
 `supabase_default`. `/schema_cache` returns your tables, relationships,
