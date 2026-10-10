@@ -39,7 +39,9 @@ otel-collector    --config=base.yaml --config=backend.yaml    (merged into one)
 │   └── otlp              gRPC on 0.0.0.0:4317, Storage pushes here
 │
 ├── processors                                       config/metrics/otel-collector.yaml
-│   └── batch             groups data points into fewer, larger requests
+│   ├── memory_limiter             refuses data above its soft limit, runs first
+│   ├── transform/storage_service  adds service="supabase-storage" to Storage's push
+│   └── batch                      groups data points into fewer, larger requests
 │
 └── exporters                                        config/metrics/backends/${BACKEND_METRICS}/
     │                                                    otel-collector-exporter.yaml
@@ -73,9 +75,9 @@ Mimir, Thanos, Amazon Managed Prometheus.
 or `file_storage`. It has its own `remote_write_queue`, held in memory.
 
 ```
-scrape / push ──► batch ──► remote_write_queue (memory) ──► metrics store
-                                    │
-                                    └── collector restarts: queued data is lost
+scrape / push ──► processors ──► remote_write_queue (memory) ──► metrics store
+                                         │
+                                         └── collector restarts: queued data is lost
 ```
 
 This is tracked upstream in
@@ -103,20 +105,25 @@ scrape job (otel-collector.yaml)                stored series
 ────────────────────────────────                ─────────────
 job_name: supabase-auth              ───►       job="supabase-auth"
 targets:  ["supabase-auth:9100"]     ───►       instance="supabase-auth:9100"
-labels:   { service: auth }          ───►       service="auth"
+labels:   { service: supabase-auth } ───►       service="supabase-auth"
 
 
 Storage OTLP resource attribute                 stored series
 ───────────────────────────────                 ─────────────
 service.name = storage_api           ───►       job="storage_api"
 (container identity)                 ───►       instance="<container-id>:pid:1"
-                                                no service label
+                                                service="supabase-storage"  (added by the collector)
 ```
 
 The exporter maps OTel's `service.name` to `job`, not to a
 `service_name` label - query Storage with `{job="storage_api"}`. Its
 `instance` embeds the container ID, so it changes every time the Storage
 container is recreated.
+
+Storage's push arrives without a `service` label, so the
+`transform/storage_service` processor in `config/metrics/otel-collector.yaml`
+adds `service="supabase-storage"` to the series whose OTel `service.name`
+is `storage_api`.
 
 ## Storage pushes
 
@@ -127,7 +134,7 @@ variables in `overrides/metrics.yml`:
 | Variable | Value |
 | --- | --- |
 | `OTEL_METRICS_ENABLED` | `true` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://supabase-observability-otel:4317` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://supabase-observability-otel-collector:4317` |
 
 `PROMETHEUS_METRICS_ENABLED` isn't needed for this. It turns on Storage's
 separate pull endpoint on admin port `5001`, which this pipeline doesn't

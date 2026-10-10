@@ -22,6 +22,8 @@ issue comes from, and whether there is a workaround.
 | The Supavisor/Realtime scrape credential is `ANON_KEY`, and there is no metrics-only secret | Supabase's compose sets `METRICS_JWT_SECRET` to `${JWT_SECRET}` for both services | After rotating keys, re-run `scripts/generate-metrics-secrets.sh` and force-recreate the collector - see [README.md](README.md#how-the-secrets-are-generated) |
 | `pg_stat_activity_*` carries `application_name` and `wait_event` labels, whose values aren't bounded | postgres-exporter's own labels | Not reduced yet |
 | Scraping Realtime produces "same timestamp, different value" warnings | Source metric not identified | Open |
+| While the collector is above its memory limit, scraped values for that period are not stored - the series have no samples, rather than `up = 0` | [`memory_limiter`](https://pkg.go.dev/go.opentelemetry.io/collector/processor/memorylimiterprocessor) refuses data above its soft limit (400 MiB hard limit, 100 MiB spike margin). Observed with the limit lowered to 10 MiB | Alert on `absent(up{job="..."})` as well as `up == 0` |
+| No container in this stack has a Docker memory limit | Not set. The collector limits itself with `memory_limiter` and `GOMEMLIMIT`, which [its documentation](https://pkg.go.dev/go.opentelemetry.io/collector/processor/memorylimiterprocessor) recommends using together | Open |
 | Moving or deleting this repo breaks Supabase's `run.sh` and `docker compose` commands while the overrides are registered | `COMPOSE_FILE` holds absolute paths into this repo, and Compose errors on a missing one | By design - loud rather than silent. Remove the two entries first - see [README.md](README.md#stopping-and-removing) |
 
 ## Not covered yet

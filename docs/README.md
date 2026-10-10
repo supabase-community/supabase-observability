@@ -1,18 +1,84 @@
 # Quick start
 
+## Updating an existing install
+
+Skip this section if you have not started this stack before.
+
+Earlier checkouts used one Compose project name, `supabase-observability`, for
+everything. Logs and metrics now have their own projects,
+`supabase-observability-logs` and `supabase-observability-metrics`, so
+`make down-logs` after pulling no longer finds containers started under the
+old name.
+
+To see which project your containers belong to, running or stopped:
+
+```bash
+docker ps -a --filter name=supabase-observability --format 'table {{.Names}}\t{{.Label "com.docker.compose.project"}}'
+```
+
+If nothing is listed, or the project column shows
+`supabase-observability-logs` or `supabase-observability-metrics`, there is
+nothing to do. Continue with [Setup](#setup).
+
+If it shows `supabase-observability`, you started the stack under the old name.
+Update in this order.
+
+**Step 1.** Before pulling, stop the stack from the checkout you started it
+from:
+
+```bash
+make down-logs
+make down-metrics   # if that checkout has this target
+```
+
+**Step 2.** Pull and start again:
+
+```bash
+git pull
+make up-logs
+make up-metrics   # if you run metrics
+```
+
+Stored logs and metrics from the old install are not carried over: the new
+projects use new volumes. The old `supabase-observability_*` volumes stay on
+disk until you remove them with `docker volume rm`.
+
+**Step 3.** If you run metrics, recreate Supabase's Storage so it picks up the
+new collector address:
+
+```bash
+(cd "$SUPABASE_DIR" && docker compose up -d storage)
+```
+
+If you pulled first, `make up-logs` or `make up-metrics` can fail, for example
+with `container name ... is already in use`. Remove the old containers and
+start again:
+
+```bash
+docker rm -f $(docker ps -aq --filter name=supabase-observability)
+make up-logs
+make up-metrics   # if you run metrics
+```
+
 ## Prerequisites
 
 | Requirement | Note |
 | --- | --- |
 | A running self-hosted Supabase instance | The `supabase/docker` directory, already up |
 | Docker Compose v2 | |
-| bash 4 or newer | `scripts/verify-logs.sh` and `scripts/set-log-levels.sh` use `declare -A` and `mapfile`. macOS ships bash 3.2 - see [Platform notes](logs/README.md#platform-notes) |
+| bash 4 or newer, for `scripts/set-log-levels.sh` | It uses `declare -A` and `mapfile`. macOS ships bash 3.2 - see [Platform notes](logs/README.md#platform-notes). `scripts/verify-logs.sh` also runs on bash 3.2 |
 | `curl`, `jq` | Used by `scripts/verify-logs.sh` to query the log store, and by the checks in [metrics/README.md](metrics/README.md#confirm-it-works) |
 | `make` | Optional, every command below has a plain Compose equivalent |
 
 This stack binds ports on localhost only: `9428` for VictoriaLogs or `3100`
 for Loki, depending on which log backend you choose, and `8428` for
 VictoriaMetrics. None should conflict with anything Supabase itself uses.
+
+Logs and metrics are separate Compose projects
+(`supabase-observability-logs` and `supabase-observability-metrics`). If
+`COMPOSE_PROJECT_NAME` is set in your shell, Compose uses it instead of the
+`name:` in these files, and both stacks end up in one project - see
+[Compose's project name precedence](https://docs.docker.com/compose/how-tos/project-name/).
 
 ## Setup
 

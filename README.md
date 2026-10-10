@@ -53,13 +53,14 @@ your machine
 ```
 
 `supabase/docker/` is your existing Supabase deployment.
-`supabase-observability/` is this project, its own Compose project.
+`supabase-observability/` is this project.
 
 Logs, metrics, and traces are each a separate Compose file inside this
-project, so you run only the ones you want. This repo currently ships
-logs and metrics; traces will add its own file when it lands, and you'll
-bring it up the same way, alongside whichever ones you already have
-running.
+repo, and each runs as its own Compose project
+(`supabase-observability-logs` and `supabase-observability-metrics`), so
+you run only the ones you want. This repo currently ships logs and
+metrics; traces will add its own file when it lands, and you'll bring it
+up the same way, alongside whichever ones you already have running.
 
 Logs reads Supabase's containers from the outside and needs nothing on
 Supabase's side. Metrics can't work that way: several of Supabase's

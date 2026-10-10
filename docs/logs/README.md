@@ -33,6 +33,9 @@ docker compose -f docker-compose.o11y-logs.yml up -d
 This binds two ports on localhost only: `9428` for VictoriaLogs, or `3100`
 for Loki, depending on `BACKEND_LOGS`.
 
+These containers run as the Compose project `supabase-observability-logs`,
+separate from Supabase's and from the metrics pipeline's.
+
 ## Confirm it works
 
 ```bash
@@ -135,9 +138,10 @@ read and discarded by Vector, never reaching the log store.
 | `supabase-meta`, `supabase-studio`, `supabase-imgproxy` | No | No route is defined for them, so Vector collects and then drops their lines |
 | `supabase-observability-*` | No | Vector excludes itself and its own stack from what it collects |
 
-The container name becomes the `appname` field in VictoriaLogs (`service`
-in Loki - see [If you're using Loki](#if-youre-using-loki)), which is what
-you filter on at query time:
+The container name becomes the `appname` and `service` fields in VictoriaLogs
+(the `service` label in Loki - see
+[If you're using Loki](#if-youre-using-loki)). The queries below filter on
+`appname`:
 
 ```
 appname:"supabase-auth" AND _time:15m
@@ -331,8 +335,8 @@ curl -sG http://127.0.0.1:3100/loki/api/v1/query_range \
   | jq '.data.result[].stream'
 ```
 
-The same service is labelled differently in each store. Loki calls it
-`service`; VictoriaLogs calls it `appname`. The value is identical, so
+Loki indexes the container name as the `service` label. VictoriaLogs stores it
+as both `service` (the stream field) and `appname`. The value is identical, so
 filters translate directly - just swap the key:
 
 | Store | Filter |
@@ -412,5 +416,6 @@ into every container on the host, so treat the Vector container as trusted.
 
 - Shell examples in these docs use GNU coreutils syntax (Linux default).
   On macOS, `date -u -d '...'` in particular needs a BSD equivalent.
-- `scripts/verify-logs.sh` and `scripts/set-log-levels.sh` need bash 4 or
-  newer (`declare -A`, `mapfile`). macOS ships bash 3.2.
+- `scripts/set-log-levels.sh` needs bash 4 or newer (`declare -A`,
+  `mapfile`). macOS ships bash 3.2. `scripts/verify-logs.sh` also runs on
+  bash 3.2.

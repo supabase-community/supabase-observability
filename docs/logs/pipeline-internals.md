@@ -15,7 +15,7 @@ Docker json-log files
   docker_host           (source: docker_logs)
         │
         ▼
-  project_logs          (strip Docker fields, set .appname)
+  project_logs          (strip Docker fields, set .appname and .service)
         │
         ▼
      router              (route: split on .appname)
@@ -115,24 +115,26 @@ Before (raw from `docker_logs`):
 After `project_logs`:
 
 ```json
-{"event_message": "...", "appname": "supabase-auth", "project": "default", "timestamp": "2026-08-08T14:55:06Z"}
+{"event_message": "...", "appname": "supabase-auth", "service": "supabase-auth", "project": "default", "timestamp": "2026-08-08T14:55:06Z"}
 ```
 
 ```
 .project        = "default"
 .event_message  = del(.message)          Docker message -> event_message
 .appname        = del(.container_name)   routing key
+.service        = .appname               store label / stream field
 del(.container_created_at, .container_id, .source_type,
     .stream, .label, .image, .host)
 ```
 
 This shape matches upstream's `vector.yml`, which is why it
 follows this exact field naming rather than something this pipeline
-invented.
+invented. `.service` is the one field added here.
 
 | Field | Consequence |
 | --- | --- |
 | `.appname` | The routing key every `router` condition reads |
+| `.service` | A copy of `.appname`. The Loki label and the VictoriaLogs stream field |
 | `.stream` | Deleted here, so stdout/stderr is indistinguishable downstream |
 | `.timestamp` | Untouched at this point - a per-service transform may overwrite it later |
 
@@ -210,12 +212,14 @@ rather than this project's. The differences:
 | Realtime metadata | No handling for `key=value` pairs; expects `time [level] msg` immediately | [`(?:\S+=\S+ )*` plus `parse_key_value`](#realtime-and-supavisors-variable-metadata) | Real lines carry a variable run of `key=value` pairs upstream's regex doesn't expect |
 | Postgres severity list | No `DEBUG` | `DEBUG` added | Postgres prints plain `DEBUG`, so those lines were landing as `LOG` |
 | Severity | Four different shapes across services | One normalized `.severity` on top | A single query could not span services |
+| Service label | No `.service` field | `.service`, a copy of `.appname`, used as the Loki label and the VictoriaLogs stream field | One name selects a service in logs and in metrics |
 | Future timestamps | Not handled | Clamped by `timestamp_guard` | See [startup behavior](#docker_logs-startup-behavior) |
 | Realtime health check filter | Matches literal `/health` in the request line; this deployment's probes hit `GET /`, so it doesn't match them | [Matches the observed probe path, plus catches response lines by status](#health-check-filtering) | Keeps probe traffic out of the store |
 | Supavisor health check filter | No route, so no filter | [Filtered by path and status](#health-check-filtering) | Follows from adding the Supavisor route |
 
 Each service's own upstream-shaped fields are left untouched; the
-normalized `.severity` is added alongside rather than replacing them.
+normalized `.severity` and the `.service` copy are added alongside rather
+than replacing them.
 
 ## Kong and Envoy each split into two transforms
 

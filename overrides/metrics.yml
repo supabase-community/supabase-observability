@@ -39,4 +39,4 @@ services:
       OTEL_METRICS_ENABLED: "true"
       # Endpoint is our otel-collector's OTLP gRPC receiver, reachable
       # over supabase_default since otel-collector joins that network.
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://supabase-observability-otel:4317"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://supabase-observability-otel-collector:4317"

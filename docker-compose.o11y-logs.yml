@@ -1,4 +1,4 @@
-name: supabase-observability
+name: supabase-observability-logs
 
 services:
 
