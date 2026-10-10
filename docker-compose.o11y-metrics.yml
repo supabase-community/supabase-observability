@@ -10,9 +10,8 @@ services:
       - ./config/metrics/otel-collector.yaml:/etc/otel/base.yaml:ro
       # Collector exporter for the chosen store: config/metrics/backends/<BACKEND_METRICS>/otel-collector-exporter.yaml
       - ./config/metrics/backends/${BACKEND_METRICS:-victoriametrics}/otel-collector-exporter.yaml:/etc/otel/backend.yaml:ro
-      # Bearer credential for Supavisor/Realtime scraping: Supabase's
-      # ANON_KEY, signed with JWT_SECRET (= METRICS_JWT_SECRET). Written
-      # by scripts/generate-metrics-secrets.sh from $SUPABASE_DIR/.env.
+      # Bearer token for Supavisor/Realtime scraping, signed with
+      # METRICS_JWT_SECRET by scripts/generate-metrics-secrets.sh.
       - ./jwt:/etc/otel/jwt:ro
     environment:
       # Soft memory target for the Go runtime: 80% of memory_limiter's

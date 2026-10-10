@@ -12,9 +12,8 @@ receivers:
     config:
       scrape_configs:
 
-        # Supavisor and Realtime require a Bearer JWT.
-        # ANON_KEY satisfies the check because it is signed
-        # with JWT_SECRET (= METRICS_JWT_SECRET).
+        # Supavisor and Realtime require a Bearer JWT signed with their
+        # METRICS_JWT_SECRET (set in overrides/metrics.yml).
         - job_name: supabase-supavisor
           metrics_path: /metrics
           authorization:

@@ -37,16 +37,17 @@ two override files have to be layered onto Supabase's own containers - see
 ## Setup at a glance
 
 Setup happens in two directories: this repo, and your Supabase `docker/`
-directory (`$SUPABASE_DIR`). The first two steps set up this project's
-side, the next two turn on metrics in Supabase, and the last checks it.
+directory (`$SUPABASE_DIR`). The order matters: step 3 signs a token with the
+value step 2 adds.
 
 | # | Where | Do | What happens |
 | --- | --- | --- | --- |
 | 1 | this repo | [Configure](#configure) `.env`: metrics block present | Names the store (`BACKEND_METRICS`) and its retention |
-| 2 | this repo | [`make up-metrics`](#start) | Reads `ANON_KEY` and `POSTGRES_PASSWORD` from Supabase's `.env` (without changing it), writes them to `jwt` and `.metrics-secrets.env`, and starts the collector, `postgres-exporter`, and the metrics store |
-| 3 | `$SUPABASE_DIR` | [Append](#enable-metrics-on-supabases-side) `overrides/metrics.yml` and `overrides/metrics-envoy.yml` to `COMPOSE_FILE` in `.env` | Nothing yet. Supabase's containers only pick this up when they're recreated |
-| 4 | `$SUPABASE_DIR` | `sh run.sh recreate` | Supabase's containers come back with their metrics endpoints on. Expect a short outage |
-| 5 | anywhere | [Confirm it works](#confirm-it-works) | 7 jobs at `up = 1`, and Storage series arriving |
+| 2 | `$SUPABASE_DIR` | [Add](#add-a-metrics-secret-to-supabases-env) `METRICS_JWT_SECRET` to `.env` | Nothing yet. It's the secret Realtime and Supavisor will check the scrape token against |
+| 3 | this repo | [`make up-metrics`](#start) | Reads `METRICS_JWT_SECRET` and `POSTGRES_PASSWORD` from Supabase's `.env` (without changing it), signs a token with the first for `jwt`, writes the second to `.metrics-secrets.env`, and starts the collector, `postgres-exporter`, and the metrics store |
+| 4 | `$SUPABASE_DIR` | [Append](#enable-metrics-on-supabases-side) `overrides/metrics.yml` and `overrides/metrics-envoy.yml` to `COMPOSE_FILE` in `.env` | Nothing yet. Supabase's containers only pick this up when they're recreated |
+| 5 | `$SUPABASE_DIR` | `sh run.sh recreate` | Supabase's containers come back with their metrics endpoints on, and Realtime and Supavisor with the new secret. Expect a short outage |
+| 6 | anywhere | [Confirm it works](#confirm-it-works) | 7 jobs at `up = 1`, and Storage series arriving |
 
 ## Configure
 
@@ -57,6 +58,23 @@ In `.env`, copied from [`.env.example`](../../.env.example):
 | `SUPABASE_DIR` | Absolute path to your Supabase `docker/` directory | required, see [../README.md](../README.md) |
 | `BACKEND_METRICS` | A folder name in `config/metrics/backends/`: `victoriametrics` | `victoriametrics` |
 | `METRICS_RETENTION_PERIOD` | e.g. `90d` | `90d` |
+
+## Add a metrics secret to Supabase's `.env`
+
+Realtime and Supavisor answer `/metrics` only to a request with a JWT signed
+with their `METRICS_JWT_SECRET`. Supabase's compose sets that to `JWT_SECRET`;
+`overrides/metrics.yml` replaces it with a value of its own, so the scrape
+token isn't signed with the secret your API keys use. Add the value to
+**Supabase's** `.env`:
+
+```bash
+printf '\nMETRICS_JWT_SECRET=%s\n' "$(openssl rand -base64 30)" >> "$SUPABASE_DIR/.env"
+```
+
+This appends one line and leaves the rest of the file as it is. Add it
+before `make up-metrics`, which signs the token with it. If the line is
+missing or empty, the override falls back to `JWT_SECRET`, and the scrape
+works the same way with that value as the secret.
 
 ## How the secrets are generated
 
@@ -69,8 +87,8 @@ scripts/generate-metrics-secrets.sh
 ```
 $SUPABASE_DIR/.env              supabase-observability/          read by
 ──────────────────              ───────────────────────          ───────
-ANON_KEY           ───────────► jwt                   (644) ───► otel-collector
-                                                                 Bearer token for Supavisor, Realtime
+METRICS_JWT_SECRET ─ signs ───► jwt                   (644) ───► otel-collector
+(else JWT_SECRET)                                                Bearer token for Supavisor, Realtime
 
 POSTGRES_PASSWORD  ───────────► .metrics-secrets.env  (600) ───► postgres-exporter
                                                                  DATA_SOURCE_NAME
@@ -87,7 +105,7 @@ changes, re-run the script and force-recreate the one that reads it:
 
 | When | Then |
 | --- | --- |
-| `ANON_KEY` changes | `make up-metrics` (regenerates `jwt`), then `docker compose -f docker-compose.o11y-metrics.yml up -d --force-recreate otel-collector` |
+| `METRICS_JWT_SECRET` (or `JWT_SECRET`, if the first isn't set) changes | `sh run.sh recreate` in `$SUPABASE_DIR`, so Realtime and Supavisor take the new value; `make up-metrics` (regenerates `jwt`), then `docker compose -f docker-compose.o11y-metrics.yml up -d --force-recreate otel-collector` |
 | `POSTGRES_PASSWORD` changes | `make up-metrics` (regenerates `.metrics-secrets.env`), then `docker compose -f docker-compose.o11y-metrics.yml up -d --force-recreate postgres-exporter` |
 
 ## Start
@@ -292,8 +310,11 @@ up is 0, or a job is missing
 │                                        check with the commands below
 │                                        fix: sh run.sh recreate  (in $SUPABASE_DIR)
 │
-├── supavisor / realtime ──────────────► jwt is missing, or ANON_KEY changed since it was written
-│                                        fix: regenerate, force-recreate otel-collector
+├── supavisor / realtime ──────────────► jwt is missing, or was signed with a different secret
+│                                        than the containers have (the secret changed after jwt
+│                                        was written, or they weren't recreated since)
+│                                        fix: make up-metrics, force-recreate otel-collector,
+│                                        sh run.sh recreate  (in $SUPABASE_DIR)
 │
 ├── postgres ──────────────────────────► .metrics-secrets.env missing or stale
 │                                        fix: regenerate, force-recreate postgres-exporter
@@ -400,7 +421,7 @@ make down-metrics
 | --- | --- |
 | Stop, keep stored metrics | `make down-metrics` |
 | Stop and delete stored metrics | `docker compose -f docker-compose.o11y-metrics.yml down -v` |
-| Put Supabase's containers back to upstream defaults | Remove the two entries from `COMPOSE_FILE` in `$SUPABASE_DIR/.env`, then `sh run.sh recreate` |
+| Put Supabase's containers back to upstream defaults | Remove the two entries from `COMPOSE_FILE` in `$SUPABASE_DIR/.env`, then `sh run.sh recreate`. The `METRICS_JWT_SECRET` line can stay or go: nothing reads it once the entries are gone |
 
 ```
 make down-metrics          ──► this project's 3 containers stop
@@ -497,13 +518,13 @@ and functions - see PostgREST's
 
 | File | Holds | Mode |
 | --- | --- | --- |
-| `jwt` | Supabase's `ANON_KEY` | `644` |
+| `jwt` | A token signed with `METRICS_JWT_SECRET`, valid for five years | `644` |
 | `.metrics-secrets.env` | `POSTGRES_PASSWORD`, in plaintext, inside a connection string for the `postgres` role | `600` |
 
-Both are gitignored. The scrape credential for Supavisor and Realtime is
-`ANON_KEY` because upstream sets their `METRICS_JWT_SECRET` to
-`JWT_SECRET` - there's no metrics-only secret. See
-[Known limitations](known-limitations.md#issues-in-how-the-pipeline-behaves).
+Both are gitignored. The token in `jwt` only opens the `/metrics` endpoints
+of Realtime and Supavisor, as long as `METRICS_JWT_SECRET` is set in
+Supabase's `.env`. Without it, both services use `JWT_SECRET`, and the token
+is signed with that instead.
 
 **Enabling metrics changes your Supabase `.env`.** It's a change you make
 by hand, and it persists: every recreate from then on includes the
