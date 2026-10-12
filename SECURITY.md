@@ -6,7 +6,7 @@ This repository ships configuration, Compose files, and scripts — no images, n
 
 **In scope:** a flaw in this repo's own config or scripts — an override that exposes something it shouldn't, a script leaking a credential, a default that weakens a deployment.
 
-**Not in scope:** anything in Supabase itself or in an upstream component (Vector, Loki, VictoriaLogs, VictoriaMetrics, Grafana) — please report those to their own projects. For Supabase, see https://hackerone.com/supabase (policy: https://supabase.com/.well-known/security.txt).
+**Not in scope:** anything in Supabase itself or in an upstream component (Vector, Loki, VictoriaLogs, VictoriaMetrics, OpenTelemetry Collector, postgres-exporter) — please report those to their own projects. For Supabase, see https://hackerone.com/supabase (policy: https://supabase.com/.well-known/security.txt).
 
 ## Reporting
 

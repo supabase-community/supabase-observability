@@ -10,12 +10,12 @@ Supabase containers ──> Vector ──> VictoriaLogs  (default, has a UI)
 
 ## Configure
 
-In `.env`:
+In `.env`, copied from [`.env.example`](../../.env.example):
 
 | Variable | Values | Default |
 | --- | --- | --- |
-| `SUPABASE_DIR` | Absolute path to your Supabase `docker/` directory | required, see [README.md](README.md) |
-| `BACKEND_LOGS` | `victorialogs` or `loki` | `victorialogs` |
+| `SUPABASE_DIR` | Absolute path to your Supabase `docker/` directory | required, see [../README.md](../README.md) |
+| `BACKEND_LOGS` | A folder name in `config/logs/backends/`: `victorialogs` or `loki` | `victorialogs` |
 | `LOGS_RETENTION_PERIOD` | e.g. `30d` | `30d` |
 
 ## Start
@@ -32,6 +32,9 @@ docker compose -f docker-compose.o11y-logs.yml up -d
 
 This binds two ports on localhost only: `9428` for VictoriaLogs, or `3100`
 for Loki, depending on `BACKEND_LOGS`.
+
+These containers run as the Compose project `supabase-observability-logs`,
+separate from Supabase's and from the metrics pipeline's.
 
 ## Confirm it works
 
@@ -68,21 +71,33 @@ Two things to know about this check:
   them afterwards.
 - A `✓` means that service reached the store, not that its parsers produced
   fields. A service emitting only unparsed lines still passes. To check
-  fields, use the queries in [log-fields.md](log-fields.md).
+  fields, use the queries in [fields.md](fields.md).
 
 If a service is missing, the script prints the query it used so you can dig
-into that one service. Start with [log-levels.md](log-levels.md) if the
-service is silent, or [log-fields.md](log-fields.md) if it is logging but
+into that one service. Start with [levels.md](levels.md) if the
+service is silent, or [fields.md](fields.md) if it is logging but
 your query doesn't match it.
 
 ## Switching backends
 
 ```bash
 # in .env:
-BACKEND_LOGS=victorialogs   # or: loki
+BACKEND_LOGS=loki   # or: victorialogs
 
-make down-logs
 make up-logs
+```
+
+`up` replaces the running store with the one `BACKEND_LOGS` names. Each
+store keeps its data in its own volume, which switching doesn't remove.
+
+Each value is a folder under `config/logs/backends/`, holding everything
+that store needs:
+
+```
+config/logs/backends/loki/
+├── compose.yml         the store container, run as logs-store
+├── vector-sink.yaml    where Vector sends logs
+└── loki.yaml           Loki's own config
 ```
 
 Run `make` on its own to list every target.
@@ -93,14 +108,10 @@ Run `make` on its own to list every target.
 make down-logs
 ```
 
-`docker compose down` on its own only tears down the profile that is
-currently active, so a store started under a different `BACKEND_LOGS` would
-be left running. `make down-logs` passes `--profile "*"` to catch both.
-
 | Goal | Command |
 | --- | --- |
 | Stop, keep stored logs | `make down-logs` |
-| Stop and delete stored logs | `docker compose -f docker-compose.o11y-logs.yml --profile "*" down -v` |
+| Stop and delete stored logs, for both stores | `docker compose -f docker-compose.o11y-logs.yml down -v` |
 | Put Supabase's log levels back | `scripts/set-log-levels.sh reset` |
 
 The third one matters if you raised any levels. Stopping this stack does not
@@ -124,12 +135,13 @@ read and discarded by Vector, never reaching the log store.
 | `supabase-edge-functions` | Yes | |
 | `supabase-db` | Yes | |
 | `supabase-pooler` | Yes | Not routed in upstream's Vector config - added here for full coverage |
-| `supabase-meta`, `supabase-studio`, `supabase-imgproxy` | No | Not among the services Supabase Cloud's own Logs Explorer surfaces, so this pipeline mirrors that and skips them too |
+| `supabase-meta`, `supabase-studio`, `supabase-imgproxy` | No | No route is defined for them, so Vector collects and then drops their lines |
 | `supabase-observability-*` | No | Vector excludes itself and its own stack from what it collects |
 
-The container name becomes the `appname` field in VictoriaLogs (`service`
-in Loki - see [If you're using Loki](#if-youre-using-loki)), which is what
-you filter on at query time:
+The container name becomes the `appname` and `service` fields in VictoriaLogs
+(the `service` label in Loki - see
+[If you're using Loki](#if-youre-using-loki)). The queries below filter on
+`appname`:
 
 ```
 appname:"supabase-auth" AND _time:15m
@@ -191,7 +203,7 @@ The last command in the block above is not optional. A gateway that failed to
 bind once can be started again *without* its port binding, and its health
 check will still report healthy. Empty output from `docker port` means the
 gateway is unreachable - see
-[log-troubleshooting.md](log-troubleshooting.md#everything-looks-healthy-but-nothing-responds).
+[troubleshooting.md](troubleshooting.md#everything-looks-healthy-but-nothing-responds).
 
 Two things you will see after switching, both expected:
 
@@ -229,7 +241,7 @@ inside the retention window.
 
 `severity` is a normalized field this pipeline adds on top of each service's
 own severity field, so one query spans all services. See
-[log-fields.md](log-fields.md) for what each service carries natively.
+[fields.md](fields.md) for what each service carries natively.
 
 The same queries work over HTTP:
 
@@ -240,7 +252,7 @@ curl -s http://localhost:9428/select/logsql/query \
 ```
 
 `_msg` is the stored message field. See
-[log-fields.md](log-fields.md#_msg-vs-event_message) if you were expecting
+[fields.md](fields.md#_msg-vs-event_message) if you were expecting
 `event_message`.
 
 LogSQL supports pipes for sorting, counting, and limiting. Count with the
@@ -303,7 +315,7 @@ scripts/set-log-levels.sh apply
 ```
 
 `scripts/set-log-levels.sh status` shows current levels against `.env`. See
-[log-levels.md](log-levels.md) for every service, its allowed values, and
+[levels.md](levels.md) for every service, its allowed values, and
 which ones are case-sensitive.
 
 Turn it back off once you're done - `scripts/set-log-levels.sh reset`
@@ -323,8 +335,8 @@ curl -sG http://127.0.0.1:3100/loki/api/v1/query_range \
   | jq '.data.result[].stream'
 ```
 
-The same service is labelled differently in each store. Loki calls it
-`service`; VictoriaLogs calls it `appname`. The value is identical, so
+Loki indexes the container name as the `service` label. VictoriaLogs stores it
+as both `service` (the stream field) and `appname`. The value is identical, so
 filters translate directly - just swap the key:
 
 | Store | Filter |
@@ -333,14 +345,14 @@ filters translate directly - just swap the key:
 | VictoriaLogs | `appname:"supabase-auth"` |
 
 Field names inside the event differ too - see
-[log-fields.md](log-fields.md#how-fields-are-stored).
+[fields.md](fields.md#how-fields-are-stored).
 
 Vector's startup healthcheck against Loki can fail if Vector comes up first.
 This is a startup ordering artifact, not a data problem; Vector retries and
 logs flow normally once Loki is ready.
 
 If a query comes back empty, see
-[log-troubleshooting.md](log-troubleshooting.md#a-query-returns-nothing-but-the-logs-should-be-there).
+[troubleshooting.md](troubleshooting.md#a-query-returns-nothing-but-the-logs-should-be-there).
 
 ## Connecting Grafana
 
@@ -404,5 +416,6 @@ into every container on the host, so treat the Vector container as trusted.
 
 - Shell examples in these docs use GNU coreutils syntax (Linux default).
   On macOS, `date -u -d '...'` in particular needs a BSD equivalent.
-- `scripts/verify-logs.sh` and `scripts/set-log-levels.sh` need bash 4 or
-  newer (`declare -A`, `mapfile`). macOS ships bash 3.2.
+- `scripts/set-log-levels.sh` needs bash 4 or newer (`declare -A`,
+  `mapfile`). macOS ships bash 3.2. `scripts/verify-logs.sh` also runs on
+  bash 3.2.

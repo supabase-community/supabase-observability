@@ -1,0 +1,20 @@
+# Loki as the log store. docker-compose.o11y-logs.yml runs this as
+# `logs-store` when BACKEND_LOGS=loki. Paths are relative to this file.
+services:
+  logs-store:
+    image: grafana/loki:3.7.4
+    container_name: supabase-observability-loki
+    restart: unless-stopped
+    command:
+      - "-config.file=/etc/loki/local-config.yaml"
+      - "-config.expand-env=true"
+    environment:
+      LOGS_RETENTION_PERIOD: ${LOGS_RETENTION_PERIOD:-30d}
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./loki.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      default:
+        aliases: [loki]
