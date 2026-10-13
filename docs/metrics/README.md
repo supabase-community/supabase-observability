@@ -286,8 +286,8 @@ What the overrides change, and why each one is needed:
 | imgproxy | `supabase-imgproxy` | `IMGPROXY_PROMETHEUS_BIND=:8081` | Off unless set |
 | Envoy | `supabase-envoy` | Admin rebound to `0.0.0.0:9901`, restricted to `/stats` with `allow_paths` | Admin listens on `127.0.0.1` by default, and the same port serves `/config_dump` - see [Security considerations](#security-considerations) |
 | Storage | `storage_api` | `OTEL_METRICS_ENABLED=true`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://supabase-observability-otel-collector:4317` | Storage pushes over OTLP rather than being scraped |
-| Supavisor | `supabase-supavisor` | Nothing | On by default. Needs the Bearer JWT from `jwt` |
-| Realtime | `supabase-realtime` | Nothing | On by default. Needs the same Bearer JWT |
+| Supavisor | `supabase-supavisor` | `METRICS_JWT_SECRET`, from Supabase's `.env` (else `JWT_SECRET`) | On by default. Needs the Bearer JWT from `jwt`, signed with this secret instead of the one your API keys use |
+| Realtime | `supabase-realtime` | `METRICS_JWT_SECRET`, same as Supavisor | On by default. Needs the same Bearer JWT |
 | Postgres | `supabase-postgres` | Nothing | No endpoint of its own. This project's `postgres-exporter` connects straight to `supabase-db` and serves one |
 
 Env vars and command-line flags are only read when a container is created,
