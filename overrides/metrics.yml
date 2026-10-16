@@ -3,9 +3,10 @@
 # compose file. Auth, imgproxy, and Storage's push are off by default;
 # PostgREST's admin server listens on localhost.
 #
-# realtime and supavisor need nothing here - their metrics endpoints are
-# on by default and only require a Bearer JWT, which the collector reads
-# from the generated jwt file.
+# realtime and supavisor: their metrics endpoints are on by default and
+# require a Bearer JWT. METRICS_JWT_SECRET gives them a metrics-only
+# signing secret from Supabase's .env, and scripts/generate-metrics-secrets.sh
+# signs the collector's jwt file with the same value.
 #
 # The gateway is in overrides/metrics-envoy.yml: Envoy's admin listener
 # also serves /config_dump (keys and JWTs in plaintext), so it's exposed
@@ -40,3 +41,14 @@ services:
       # Endpoint is our otel-collector's OTLP gRPC receiver, reachable
       # over supabase_default since otel-collector joins that network.
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://supabase-observability-otel-collector:4317"
+
+  realtime:
+    environment:
+      # Replaces Supabase's METRICS_JWT_SECRET: ${JWT_SECRET}. Falls back
+      # to JWT_SECRET when METRICS_JWT_SECRET isn't in Supabase's .env.
+      METRICS_JWT_SECRET: "${METRICS_JWT_SECRET:-${JWT_SECRET}}"
+
+  supavisor:
+    environment:
+      # Same as realtime.
+      METRICS_JWT_SECRET: "${METRICS_JWT_SECRET:-${JWT_SECRET}}"

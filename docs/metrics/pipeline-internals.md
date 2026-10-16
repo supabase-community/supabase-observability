@@ -230,25 +230,27 @@ files: rebinding to `0.0.0.0` without `allow_paths` would expose
 
 ## Supavisor and Realtime credentials
 
-Both check a Bearer JWT against `METRICS_JWT_SECRET`, which upstream's
-compose sets to `${JWT_SECRET}`. Supabase's `ANON_KEY` is signed with
-`JWT_SECRET`, so it passes:
+Both check a Bearer JWT against `METRICS_JWT_SECRET`. Supabase's compose
+sets it to `${JWT_SECRET}`; `overrides/metrics.yml` sets it to
+`${METRICS_JWT_SECRET:-${JWT_SECRET}}`, so a `METRICS_JWT_SECRET` in
+Supabase's `.env` wins and `JWT_SECRET` is the fallback.
+`generate-metrics-secrets.sh` picks the secret by the same rule and signs
+the collector's token with it (HS256, `role: metrics`, valid five years):
 
 ```
 $SUPABASE_DIR/.env
-├── JWT_SECRET ───────────┬──► realtime   METRICS_JWT_SECRET   (upstream compose)
-│                         └──► supavisor  METRICS_JWT_SECRET   (upstream compose)
-│
-├── ANON_KEY  (signed with JWT_SECRET)
-│     └── generate-metrics-secrets.sh ──► jwt ──► otel-collector
-│                                                 credentials_file for both jobs
+├── METRICS_JWT_SECRET  (else JWT_SECRET)
+│     ├──► realtime   METRICS_JWT_SECRET   (overrides/metrics.yml)
+│     ├──► supavisor  METRICS_JWT_SECRET   (overrides/metrics.yml)
+│     └── generate-metrics-secrets.sh signs ──► jwt ──► otel-collector
+│                                                       credentials_file for both jobs
 │
 └── POSTGRES_PASSWORD
       └── generate-metrics-secrets.sh ──► .metrics-secrets.env ──► postgres-exporter
                                                                    DATA_SOURCE_NAME
 ```
 
-Without the token, Supavisor answers `/metrics` with `403`.
+Without a token signed with that secret, both answer `/metrics` with `403`.
 
 Both secrets are read from Supabase's `.env`, not this project's, so when
 a key changes, that file is the one place to change it.
