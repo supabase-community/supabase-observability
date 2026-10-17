@@ -239,20 +239,16 @@ the collector's token with it (HS256, `role: metrics`, valid five years):
 
 ```
 $SUPABASE_DIR/.env
-├── METRICS_JWT_SECRET  (else JWT_SECRET)
-│     ├──► realtime   METRICS_JWT_SECRET   (overrides/metrics.yml)
-│     ├──► supavisor  METRICS_JWT_SECRET   (overrides/metrics.yml)
-│     └── generate-metrics-secrets.sh signs ──► jwt ──► otel-collector
-│                                                       credentials_file for both jobs
-│
-└── POSTGRES_PASSWORD
-      └── generate-metrics-secrets.sh ──► .metrics-secrets.env ──► postgres-exporter
-                                                                   DATA_SOURCE_NAME
+└── METRICS_JWT_SECRET  (else JWT_SECRET)
+      ├──► realtime   METRICS_JWT_SECRET   (overrides/metrics.yml)
+      ├──► supavisor  METRICS_JWT_SECRET   (overrides/metrics.yml)
+      └── generate-metrics-secrets.sh signs ──► jwt ──► otel-collector
+                                                        credentials_file for both jobs
 ```
 
 Without a token signed with that secret, both answer `/metrics` with `403`.
 
-Both secrets are read from Supabase's `.env`, not this project's, so when
+The secret is read from Supabase's `.env`, not this project's, so when
 a key changes, that file is the one place to change it.
 
 ## postgres-exporter
@@ -264,6 +260,33 @@ and scrapes that.
 It connects straight to `supabase-db:5432`, not through Supavisor, so the
 exporter's own connections don't show up in the connection-pool metrics
 it sits next to.
+
+It connects as `postgres_exporter`, a role with only
+[`pg_monitor`](https://www.postgresql.org/docs/current/predefined-roles.html),
+not as `postgres`. `generate-metrics-secrets.sh` sets the role up over
+`docker exec`, as `postgres`:
+
+```
+supabase-db  (docker exec ... psql -U postgres)
+├── SET log_statement = 'none'             this session only
+├── CREATE ROLE postgres_exporter LOGIN    only if it's missing
+├── ALTER ROLE ... PASSWORD '<new hex>'    every run
+└── GRANT pg_monitor TO postgres_exporter
+          │
+          ▼
+.metrics-secrets.env ──► postgres-exporter
+DATA_SOURCE_NAME=postgresql://postgres_exporter:<hex>@supabase-db:5432/...
+```
+
+- The password is hex, so the connection string needs no URL encoding.
+- `postgres` isn't a superuser in Supabase's image, but it holds
+  `pg_monitor` with `ADMIN OPTION`, which Postgres 16 and later require
+  to grant it.
+- Supabase sets `log_statement=ddl`. It's hidden by
+  `log_min_messages=fatal`, but once `SUPABASE_DB_LOG_LEVEL` is raised,
+  `ALTER ROLE ... PASSWORD` would land in Postgres' logs and then in the
+  log store. Turning `log_statement` off for the session prevents that.
+  supautils lets `postgres` change it.
 
 It needs `v0.20.0` or newer. Supabase's Postgres ships a setting,
 `supautils.disable_program`, with no description (`short_desc` is `NULL`),
