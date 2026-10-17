@@ -29,8 +29,8 @@ services:
     # NULL short_desc (supautils.disable_program), which also drops pg_stat_activity.
     container_name: supabase-observability-postgres-exporter
     restart: unless-stopped
-    # DATA_SOURCE_NAME, written by scripts/generate-metrics-secrets.sh
-    # from $SUPABASE_DIR/.env's POSTGRES_PASSWORD. Connects to supabase-db
+    # DATA_SOURCE_NAME, written by scripts/generate-metrics-secrets.sh for
+    # the pg_monitor-only postgres_exporter role. Connects to supabase-db
     # directly, not through the pooler, so pool statistics aren't skewed.
     env_file:
       - .metrics-secrets.env
