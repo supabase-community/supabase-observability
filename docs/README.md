@@ -68,7 +68,7 @@ make up-metrics   # if you run metrics
 | Docker Compose v2 | |
 | bash 4 or newer, for `scripts/set-log-levels.sh` | It uses `declare -A` and `mapfile`. macOS ships bash 3.2 - see [Platform notes](logs/README.md#platform-notes). `scripts/verify-logs.sh` also runs on bash 3.2 |
 | `curl`, `jq` | Used by `scripts/verify-logs.sh` to query the log store, and by the checks in [metrics/README.md](metrics/README.md#confirm-it-works) |
-| `openssl` | Used by `scripts/generate-metrics-secrets.sh` to sign the metrics token, and by the command that creates `METRICS_JWT_SECRET` |
+| `openssl` | Used by `scripts/generate-metrics-secrets.sh` to sign the metrics token and make `postgres_exporter`'s password, and by the command that creates `METRICS_JWT_SECRET` |
 | `make` | Optional, every command below has a plain Compose equivalent |
 
 This stack binds ports on localhost only: `9428` for VictoriaLogs or `3100`
@@ -159,7 +159,7 @@ Then:
 
 ```bash
 make up-metrics
-# regenerates jwt and .metrics-secrets.env from Supabase's own .env first
+# regenerates jwt and .metrics-secrets.env first
 ```
 
 See [How the secrets are generated](metrics/README.md#how-the-secrets-are-generated) for why that's

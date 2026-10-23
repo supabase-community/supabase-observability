@@ -44,7 +44,7 @@ value step 2 adds.
 | --- | --- | --- | --- |
 | 1 | this repo | [Configure](#configure) `.env`: metrics block present | Names the store (`BACKEND_METRICS`) and its retention |
 | 2 | `$SUPABASE_DIR` | [Add](#add-a-metrics-secret-to-supabases-env) `METRICS_JWT_SECRET` to `.env` | Nothing yet. It's the secret Realtime and Supavisor will check the scrape token against |
-| 3 | this repo | [`make up-metrics`](#start) | Reads `METRICS_JWT_SECRET` and `POSTGRES_PASSWORD` from Supabase's `.env` (without changing it), signs a token with the first for `jwt`, writes the second to `.metrics-secrets.env`, and starts the collector, `postgres-exporter`, and the metrics store |
+| 3 | this repo | [`make up-metrics`](#start) | Reads `METRICS_JWT_SECRET` from Supabase's `.env` (without changing it) and signs a token with it for `jwt`, sets up a `postgres_exporter` role in `supabase-db` and writes its connection string to `.metrics-secrets.env`, and starts the collector, `postgres-exporter`, and the metrics store |
 | 4 | `$SUPABASE_DIR` | [Append](#enable-metrics-on-supabases-side) `overrides/metrics.yml` and `overrides/metrics-envoy.yml` to `COMPOSE_FILE` in `.env` | Nothing yet. Supabase's containers only pick this up when they're recreated |
 | 5 | `$SUPABASE_DIR` | `sh run.sh recreate` | Supabase's containers come back with their metrics endpoints on, and Realtime and Supavisor with the new secret. Expect a short outage |
 | 6 | anywhere | [Confirm it works](#confirm-it-works) | 7 jobs at `up = 1`, and Storage series arriving |
@@ -90,23 +90,30 @@ $SUPABASE_DIR/.env              supabase-observability/          read by
 METRICS_JWT_SECRET ─ signs ───► jwt                   (644) ───► otel-collector
 (else JWT_SECRET)                                                Bearer token for Supavisor, Realtime
 
-POSTGRES_PASSWORD  ───────────► .metrics-secrets.env  (600) ───► postgres-exporter
-                                                                 DATA_SOURCE_NAME
+supabase-db
+───────────
+postgres_exporter ─ password ─► .metrics-secrets.env  (600) ───► postgres-exporter
+(pg_monitor only)                                                DATA_SOURCE_NAME
 ```
 
-Both files are gitignored and overwritten on every run. Values always come
-from Supabase's own `.env`, never this project's, so each secret has one
-source. `jwt` is `644` rather than `600` because the collector runs as uid
-`10001` and has to read it.
+Both files are gitignored and overwritten on every run. The signing secret
+always comes from Supabase's own `.env`, never this project's, so it has
+one source. The database password comes from no `.env`: each run creates
+the `postgres_exporter` role if it's missing, gives it a new random
+password, and writes that only to `.metrics-secrets.env`. `jwt` is `644`
+rather than `600` because the collector runs as uid `10001` and has to
+read it.
 
-Only relevant later, if Supabase's own secrets change. `make up-metrics`
-doesn't recreate a container that's already running, so after a value
-changes, re-run the script and force-recreate the one that reads it:
+Only relevant later, if something changes after setup:
 
 | When | Then |
 | --- | --- |
 | `METRICS_JWT_SECRET` (or `JWT_SECRET`, if the first isn't set) changes | `sh run.sh recreate` in `$SUPABASE_DIR`, so Realtime and Supavisor take the new value; `make up-metrics` (regenerates `jwt`), then `docker compose -f docker-compose.o11y-metrics.yml up -d --force-recreate otel-collector` |
-| `POSTGRES_PASSWORD` changes | `make up-metrics` (regenerates `.metrics-secrets.env`), then `docker compose -f docker-compose.o11y-metrics.yml up -d --force-recreate postgres-exporter` |
+| `supabase-db`'s data is reset, so the `postgres_exporter` role is gone | `make up-metrics`. It creates the role again, and Compose recreates `postgres-exporter` on its own because the connection string changed |
+
+Running `scripts/generate-metrics-secrets.sh` on its own changes the role's
+password while the running `postgres-exporter` still has the old one. Use
+`make up-metrics`, or follow the script with `docker compose -f docker-compose.o11y-metrics.yml up -d postgres-exporter`.
 
 ## Start
 
@@ -316,8 +323,9 @@ up is 0, or a job is missing
 │                                        fix: make up-metrics, force-recreate otel-collector,
 │                                        sh run.sh recreate  (in $SUPABASE_DIR)
 │
-├── postgres ──────────────────────────► .metrics-secrets.env missing or stale
-│                                        fix: regenerate, force-recreate postgres-exporter
+├── postgres ──────────────────────────► .metrics-secrets.env missing or stale, or the
+│                                        postgres_exporter role is gone
+│                                        fix: make up-metrics
 │
 └── jobs absent, collector up ─────────► it refused data above its memory limit
                                          docker logs supabase-observability-otel-collector
@@ -519,12 +527,15 @@ and functions - see PostgREST's
 | File | Holds | Mode |
 | --- | --- | --- |
 | `jwt` | A token signed with `METRICS_JWT_SECRET`, valid for five years | `644` |
-| `.metrics-secrets.env` | `POSTGRES_PASSWORD`, in plaintext, inside a connection string for the `postgres` role | `600` |
+| `.metrics-secrets.env` | The password of `postgres_exporter`, a role with only `pg_monitor`, in plaintext inside a connection string | `600` |
 
 Both are gitignored. The token in `jwt` only opens the `/metrics` endpoints
 of Realtime and Supavisor, as long as `METRICS_JWT_SECRET` is set in
 Supabase's `.env`. Without it, both services use `JWT_SECRET`, and the token
-is signed with that instead.
+is signed with that instead. The `postgres_exporter` role can't read table
+data, but [`pg_monitor`](https://www.postgresql.org/docs/current/predefined-roles.html)
+lets it see every session's query text in `pg_stat_activity`, which can
+include values written into queries.
 
 **Enabling metrics changes your Supabase `.env`.** It's a change you make
 by hand, and it persists: every recreate from then on includes the
