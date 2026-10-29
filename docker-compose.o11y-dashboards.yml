@@ -1,0 +1,38 @@
+name: supabase-observability-dashboards
+
+services:
+
+  grafana:
+    # Pinned to 12.4.x on purpose: Grafana 13 exports dashboards in schema
+    # v2, which file-based provisioning rejects (grafana/grafana#123607).
+    # Moving to 13.x is its own change.
+    image: grafana/grafana:12.4.13
+    container_name: supabase-observability-grafana
+    restart: unless-stopped
+    ports:
+      # Bound to loopback only, like every other port in this stack.
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      # No open sign-up, and no outbound calls from an ops container.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - supabase-observability
+
+networks:
+  supabase-observability:
+    external: true
+
+volumes:
+  grafana_data:

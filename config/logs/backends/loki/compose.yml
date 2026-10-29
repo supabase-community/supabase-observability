@@ -18,3 +18,5 @@ services:
     networks:
       default:
         aliases: [loki]
+      supabase-observability:
+        aliases: [loki]

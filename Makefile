@@ -7,14 +7,20 @@ MAKEFLAGS += --warn-undefined-variables --no-builtin-rules
 
 COMPOSE_LOGS := docker compose -f docker-compose.o11y-logs.yml
 COMPOSE_METRICS := docker compose -f docker-compose.o11y-metrics.yml
+COMPOSE_DASHBOARDS := docker compose -f docker-compose.o11y-dashboards.yml
 
-.PHONY: help up-logs down-logs verify-logs restart-vector up-metrics down-metrics generate-metrics-secrets
+# Shared network, declared external by every Compose file in this repo.
+# Logs and metrics are separate Compose projects, so Grafana can only
+# reach both stores through a network they all join.
+SHARED_NETWORK := supabase-observability
+
+.PHONY: help up-logs down-logs verify-logs restart-vector up-metrics down-metrics generate-metrics-secrets up-dashboards down-dashboards network
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) \
 	  | awk 'BEGIN {FS = ":.*## "}; {printf "  %-16s %s\n", $$1, $$2}'
 
-up-logs: ## Start the log pipeline (backend set by BACKEND_LOGS in .env)
+up-logs: network ## Start the log pipeline (backend set by BACKEND_LOGS in .env)
 	$(COMPOSE_LOGS) up -d
 
 down-logs: ## Stop the log pipeline
@@ -28,7 +34,7 @@ restart-vector: ## Restart Vector after a config change, then show its startup l
 	sleep 2
 	docker logs supabase-observability-vector --tail 20
 
-up-metrics: generate-metrics-secrets ## Start the metrics pipeline (backend set by BACKEND_METRICS in .env)
+up-metrics: network generate-metrics-secrets ## Start the metrics pipeline (backend set by BACKEND_METRICS in .env)
 	$(COMPOSE_METRICS) up -d
 
 generate-metrics-secrets:
@@ -36,3 +42,13 @@ generate-metrics-secrets:
 
 down-metrics: ## Stop the metrics pipeline
 	$(COMPOSE_METRICS) down
+
+up-dashboards: network ## Start Grafana (http://127.0.0.1:3000)
+	$(COMPOSE_DASHBOARDS) up -d
+
+down-dashboards: ## Stop Grafana
+	$(COMPOSE_DASHBOARDS) down
+
+network: ## Create the shared Docker network if it isn't there yet
+	@docker network inspect $(SHARED_NETWORK) >/dev/null 2>&1 \
+	  || docker network create $(SHARED_NETWORK)
