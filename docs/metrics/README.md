@@ -408,16 +408,18 @@ under `config/metrics/backends/`, and `BACKEND_METRICS` names the folder:
 ```
 config/metrics/backends/victoriametrics/
 ├── compose.yml                    the store container, run as metrics-store
-└── otel-collector-exporter.yaml   where the collector sends metrics
+├── otel-collector-exporter.yaml   where the collector sends metrics
+└── grafana-datasource.yaml        how Grafana reads the store
 ```
 
 To add one, copy the folder and rename it. In the new `compose.yml`, keep
 the service name `metrics-store` and set the network alias to the folder
-name - the exporter's endpoint uses it as the host. Declare the store's
-data volume in `docker-compose.o11y-metrics.yml` too: Compose doesn't carry
-volume declarations over from the backend's file. Then set
-`BACKEND_METRICS` and run `make up-metrics`, which replaces the running
-store.
+name - the exporter's endpoint uses it as the host. Give it the same alias on
+the `supabase-observability` network too, which is how Grafana reaches it,
+and point the url in `grafana-datasource.yaml` at that alias. Declare the
+store's data volume in `docker-compose.o11y-metrics.yml` too: Compose doesn't
+carry volume declarations over from the backend's file. Then set `BACKEND_METRICS`
+and run `make up-metrics`, which replaces the running store.
 
 ## Stopping and removing
 
@@ -439,6 +441,15 @@ make down-metrics          ──► this project's 3 containers stop
 remove from COMPOSE_FILE   ──► Supabase back to upstream defaults
  + sh run.sh recreate          required before moving or deleting this repo
 ```
+
+## Grafana
+
+`make up-dashboards` starts Grafana at `http://127.0.0.1:3000`. Sign in as
+`admin` with `GRAFANA_ADMIN_PASSWORD` from `.env`; setup is in
+[../README.md](../README.md#start-grafana). The metrics store is already there
+as a datasource named `VictoriaMetrics` (type Prometheus, uid `prometheus`),
+with a 60s interval to match the collector's default scrape interval. Query it
+from Explore.
 
 ## Querying (VictoriaMetrics)
 

@@ -17,8 +17,9 @@ docker ps -a --filter name=supabase-observability --format 'table {{.Names}}\t{{
 ```
 
 If nothing is listed, or the project column shows
-`supabase-observability-logs` or `supabase-observability-metrics`, there is
-nothing to do. Continue with [Setup](#setup).
+`supabase-observability-logs`, `supabase-observability-metrics`, or
+`supabase-observability-dashboards`, there is nothing to do. Continue with
+[Setup](#setup).
 
 If it shows `supabase-observability`, you started the stack under the old name.
 Update in this order.
@@ -72,13 +73,16 @@ make up-metrics   # if you run metrics
 | `make` | Optional, every command below has a plain Compose equivalent |
 
 This stack binds ports on localhost only: `9428` for VictoriaLogs or `3100`
-for Loki, depending on which log backend you choose, and `8428` for
-VictoriaMetrics. None should conflict with anything Supabase itself uses.
+for Loki, depending on which log backend you choose, `8428` for
+VictoriaMetrics, and `3000` for Grafana. None should conflict with anything
+Supabase itself uses. If something on your machine already uses `3000`, set
+`GRAFANA_PORT` in `.env`.
 
-Logs and metrics are separate Compose projects
-(`supabase-observability-logs` and `supabase-observability-metrics`). If
+Logs, metrics, and Grafana are separate Compose projects
+(`supabase-observability-logs`, `supabase-observability-metrics`, and
+`supabase-observability-dashboards`). If
 `COMPOSE_PROJECT_NAME` is set in your shell, Compose uses it instead of the
-`name:` in these files, and both stacks end up in one project - see
+`name:` in these files, and all of them end up in one project - see
 [Compose's project name precedence](https://docs.docker.com/compose/how-tos/project-name/).
 
 ## Setup
@@ -192,18 +196,63 @@ Two things worth knowing before you do:
 Full walkthrough, including how to confirm it works:
 [metrics/README.md](metrics/README.md)
 
+## Start Grafana
+
+Set a password for Grafana's `admin` login in `.env` first. Grafana creates
+the login on its first start, and changing `GRAFANA_ADMIN_PASSWORD`
+afterwards does not change an existing login:
+
+```bash
+GRAFANA_ADMIN_PASSWORD=<choose one>
+```
+
+Then:
+
+```bash
+make up-dashboards
+```
+
+Open `http://127.0.0.1:3000` and sign in as `admin`. Under Connections, Data
+sources, you will find the metrics store and the log store you chose, already
+set up - there is nothing to add by hand. Both show an error until their
+stores are running, so start [logs](#start-logs) and
+[metrics](#start-metrics) first.
+
+Worth knowing:
+
+- Grafana listens on `127.0.0.1` only, like every other port in this stack.
+  Set `GRAFANA_PORT` in `.env` to change the port.
+- The first start downloads the VictoriaLogs plugin from grafana.com, so it
+  needs internet access once. The plugin is kept in the `grafana_data`
+  volume. Loki needs no plugin.
+- If you change `BACKEND_LOGS` after Grafana's first start, Grafana adds the
+  new log datasource but keeps the old one in the `grafana_data` volume. To
+  remove the old one, reset Grafana with
+  `docker compose -f docker-compose.o11y-dashboards.yml down -v` and run
+  `make up-dashboards`. The reset also removes Grafana's login, which is
+  created again from `.env`.
+- If you already run logs or metrics from an earlier checkout, `make up-logs`
+  and `make up-metrics` now create a shared Docker network,
+  `supabase-observability`, and recreate the store containers to join it.
+  Stored data is kept, but expect a few seconds of interruption.
+- To start Grafana over, including its login, run
+  `docker compose -f docker-compose.o11y-dashboards.yml down -v`.
+
 ## Stopping
 
 ```bash
 make down-logs
 make down-metrics
+make down-dashboards
 ```
 
-Each stops its pipeline and keeps what's already stored. To also delete
+Each stops its Compose project and keeps what's already stored. To also delete
 stored data, put log levels back to Supabase's defaults, or turn
 Supabase's metrics endpoints back off, see
 [logs/README.md](logs/README.md#stopping-and-removing) and
-[metrics/README.md](metrics/README.md#stopping-and-removing).
+[metrics/README.md](metrics/README.md#stopping-and-removing). Grafana keeps its
+login and plugin in the `grafana_data` volume; to reset it, see
+[Start Grafana](#start-grafana).
 
 ## Confirming nothing upstream was touched
 
@@ -247,7 +296,14 @@ Loki's idle memory climbs for a few minutes after startup before
 settling - measure after at least 10 minutes of no traffic, not
 immediately after `up-logs`.
 
-Both combinations stay well under 150MB total.
+Both combinations stay well under 150MB total, without Grafana.
+
+Grafana is one more container, measured the same way with the VictoriaLogs
+plugin installed:
+
+| Container | CPU | Memory |
+| --- | --- | --- |
+| `supabase-observability-grafana` | 0.55% | 102.2MiB |
 
 ## Other documents
 
