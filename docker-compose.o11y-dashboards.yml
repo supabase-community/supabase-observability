@@ -1,0 +1,47 @@
+name: supabase-observability-dashboards
+
+services:
+
+  grafana:
+    # Pinned to 12.4.x on purpose: Grafana 13 exports dashboards in schema
+    # v2, which file-based provisioning rejects (grafana/grafana#123607).
+    # Moving to 13.x is its own change.
+    image: grafana/grafana:12.4.13
+    container_name: supabase-observability-grafana
+    restart: unless-stopped
+    ports:
+      # Bound to loopback only, like every other port in this stack.
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      # Turn off open sign-up, usage reports, and the Grafana version check.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      # Grafana installs the VictoriaLogs plugin at start, before it reads
+      # the datasource files. The first start downloads it from grafana.com,
+      # and later starts reuse the copy kept in grafana_data. Loki is built
+      # in and needs no plugin.
+      GF_PLUGINS_PREINSTALL_SYNC: victoriametrics-logs-datasource@0.33.1
+    volumes:
+      - grafana_data:/var/lib/grafana
+      # Each signal's datasource file is mounted at one fixed path, and
+      # BACKEND_LOGS and BACKEND_METRICS pick which file that is.
+      - ./config/metrics/backends/${BACKEND_METRICS:-victoriametrics}/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/metrics.yaml:ro
+      - ./config/logs/backends/${BACKEND_LOGS:-victorialogs}/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/logs.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - supabase-observability
+
+networks:
+  supabase-observability:
+    external: true
+
+volumes:
+  grafana_data:

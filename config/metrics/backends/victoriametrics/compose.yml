@@ -15,3 +15,5 @@ services:
     networks:
       default:
         aliases: [victoriametrics]
+      supabase-observability:
+        aliases: [victoriametrics]

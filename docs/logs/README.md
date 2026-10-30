@@ -89,15 +89,19 @@ make up-logs
 
 `up` replaces the running store with the one `BACKEND_LOGS` names. Each
 store keeps its data in its own volume, which switching doesn't remove.
+If you already run Grafana, see
+[Start Grafana](../README.md#start-grafana) for removing the old log
+datasource.
 
 Each value is a folder under `config/logs/backends/`, holding everything
 that store needs:
 
 ```
 config/logs/backends/loki/
-├── compose.yml         the store container, run as logs-store
-├── vector-sink.yaml    where Vector sends logs
-└── loki.yaml           Loki's own config
+├── compose.yml               the store container, run as logs-store
+├── vector-sink.yaml          where Vector sends logs
+├── grafana-datasource.yaml   how Grafana reads the store
+└── loki.yaml                 Loki's own config
 ```
 
 Run `make` on its own to list every target.
@@ -324,8 +328,8 @@ restores upstream defaults. See
 
 ## If you're using Loki
 
-Loki has no UI of its own. Query over HTTP, or point an existing Grafana at
-it.
+Loki has no UI of its own. Query over HTTP, or use the Grafana this repo
+ships (see [Connecting Grafana](#connecting-grafana)).
 
 ```bash
 curl -sG http://127.0.0.1:3100/loki/api/v1/query_range \
@@ -356,16 +360,20 @@ If a query comes back empty, see
 
 ## Connecting Grafana
 
-If you already run Grafana, point it at either store instead of using VMUI or
-curl.
+This repo ships a Grafana container: `make up-dashboards`, set up in
+[../README.md](../README.md#start-grafana). The log store you chose is
+already provisioned as a datasource:
 
-| Store | Setup |
-| --- | --- |
-| Loki | Built-in Grafana data source. Add the Loki container's URL as reachable from Grafana, query with LogQL |
-| VictoriaLogs | Needs its own data source plugin installed in Grafana. Not verified against this stack yet |
+| Store | Datasource | uid |
+| --- | --- | --- |
+| Loki | Built-in Loki type, queried with LogQL | `loki` |
+| VictoriaLogs | VictoriaLogs plugin 0.33.1, installed at start, queried with LogsQL | `victorialogs` |
 
-This repo does not ship a Grafana container. Dashboards are planned; for the
-log signal on its own, VMUI covers the same ground without the extra service.
+If you run your own Grafana instead, point it at either store. VictoriaLogs
+needs the `victoriametrics-logs-datasource` plugin installed. Both stores
+listen on `127.0.0.1` only. A Grafana in Docker can reach them by joining the
+`supabase-observability` network and using the store's folder name as the host
+(`victorialogs:9428` or `loki:3100`).
 
 ## Security considerations
 
