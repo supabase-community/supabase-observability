@@ -39,7 +39,9 @@ jobs:
               otel/opentelemetry-collector-contrib:0.153.0 \
               validate --config=/etc/otel/base.yaml --config=/etc/otel/backend.yaml
           done
-      - name: Grafana datasources, each log backend
+      - name: Dashboard queries
+        run: scripts/check-dashboards.sh
+      - name: Grafana datasources and dashboards, each log backend
         run: |
           make network
           check() {
@@ -50,6 +52,8 @@ jobs:
             BACKEND_LOGS=$b \
               docker compose -f docker-compose.o11y-dashboards.yml up -d --wait --wait-timeout 180
             check "$b"
+            curl -sf -o /dev/null -u "admin:changeme" \
+              http://127.0.0.1:3000/api/dashboards/uid/supabase-overview
             docker compose -f docker-compose.o11y-dashboards.yml down -v
           done
       - name: Grafana log, on failure
