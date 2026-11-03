@@ -449,7 +449,8 @@ remove from COMPOSE_FILE   ──► Supabase back to upstream defaults
 [../README.md](../README.md#start-grafana). The metrics store is already there
 as a datasource named `VictoriaMetrics` (type Prometheus, uid `prometheus`),
 with a 60s interval to match the collector's default scrape interval. Query it
-from Explore.
+from Explore. The Overview dashboard reads from this datasource; see
+[../dashboards/README.md](../dashboards/README.md).
 
 ## Querying (VictoriaMetrics)
 

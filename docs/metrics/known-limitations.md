@@ -28,5 +28,5 @@ issue comes from, and whether there is a workaround.
 
 ## Not covered yet
 
-Dashboards, alerting, and traces are tracked on the
+Per-service dashboards, alerting, and traces are tracked on the
 [repo README](../../README.md#status), not here.

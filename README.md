@@ -2,9 +2,9 @@
 
 Community-maintained observability for self-hosted
 [Supabase](https://github.com/supabase/supabase). Logs and metrics
-collected into open-source backends. Traces and Grafana dashboards built
-around the Supabase services are planned - see [Status](#status) for what
-ships today.
+collected into open-source backends, with a Grafana overview dashboard.
+Traces and per-service dashboards are planned - see [Status](#status) for
+what ships today.
 
 For anything about Supabase itself, see the
 [official documentation](https://supabase.com/docs).
@@ -23,7 +23,7 @@ open-source components you run yourself.
 | [Logs](docs/logs/README.md) | Available | Vector into VictoriaLogs, or Loki |
 | [Metrics](docs/metrics/README.md) | Available | OpenTelemetry Collector into VictoriaMetrics |
 | Traces | Planned | OpenTelemetry Collector, OTLP |
-| Dashboards | Planned | Grafana |
+| [Dashboards](docs/dashboards/README.md) | Overview available | Grafana |
 | Alerting | Planned | vmalert, Alertmanager |
 | Kubernetes | Planned | Helm chart |
 
@@ -48,18 +48,22 @@ your machine
       ├── docker-compose.o11y-logs.yml
       │     └── reads container logs via the Docker socket
       │
-      └── docker-compose.o11y-metrics.yml
-            └── scrapes those endpoints
+      ├── docker-compose.o11y-metrics.yml
+      │     └── scrapes those endpoints
+      │
+      └── docker-compose.o11y-dashboards.yml
+            └── Grafana, reading both stores
 ```
 
 `supabase/docker/` is your existing Supabase deployment.
 `supabase-observability/` is this project.
 
-Logs, metrics, and traces are each a separate Compose file inside this
-repo, and each runs as its own Compose project
-(`supabase-observability-logs` and `supabase-observability-metrics`), so
-you run only the ones you want. This repo currently ships logs and
-metrics; traces will add its own file when it lands, and you'll bring it
+Logs, metrics, and dashboards are each a separate Compose file inside
+this repo, and each runs as its own Compose project
+(`supabase-observability-logs`, `supabase-observability-metrics`, and
+`supabase-observability-dashboards`), so you run only the ones you want.
+Each Compose file reads its settings from the matching folder under
+`config/`. Traces will add its own file when it lands, and you'll bring it
 up the same way, alongside whichever ones you already have running.
 
 Logs reads Supabase's containers from the outside and needs nothing on
