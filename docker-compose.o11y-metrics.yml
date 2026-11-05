@@ -48,6 +48,8 @@ services:
 networks:
   supabase_default:
     external: true
+  supabase-observability:
+    external: true
 
 volumes:
   victoriametrics_data:

@@ -35,3 +35,19 @@ jobs:
               otel/opentelemetry-collector-contrib:0.153.0 \
               validate --config=/etc/otel/base.yaml --config=/etc/otel/backend.yaml
           done
+      - name: Grafana datasources, each log backend
+        run: |
+          make network
+          check() {
+            curl -sf -u "admin:changeme" http://127.0.0.1:3000/api/datasources \
+              | python3 -c 'import json,sys; got=sorted(d["uid"] for d in json.load(sys.stdin)); want=sorted(sys.argv[1:]); sys.exit(0 if got==want else "datasources: got %s, want %s" % (got, want))' prometheus "$1"
+          }
+          for b in victorialogs loki; do
+            BACKEND_LOGS=$b \
+              docker compose -f docker-compose.o11y-dashboards.yml up -d --wait --wait-timeout 180
+            check "$b"
+            docker compose -f docker-compose.o11y-dashboards.yml down -v
+          done
+      - name: Grafana log, on failure
+        if: failure()
+        run: docker logs supabase-observability-grafana

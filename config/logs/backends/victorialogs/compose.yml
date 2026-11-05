@@ -15,3 +15,5 @@ services:
     networks:
       default:
         aliases: [victorialogs]
+      supabase-observability:
+        aliases: [victorialogs]

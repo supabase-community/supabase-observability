@@ -75,7 +75,8 @@ itself. See [docs/metrics/README.md](docs/metrics/README.md#enable-metrics-on-su
 Each signal's store is chosen with one environment variable naming a
 folder under `config/<signal>/backends/`, separate from the collection
 logic itself. That folder holds everything the store needs: its
-container, where the collector sends data, and the store's own config.
+container, where the collector sends data, how Grafana connects to it, and
+the store's own config.
 For logs, that's `BACKEND_LOGS` (`victorialogs` or `loki`) - see
 [docs/logs/README.md](docs/logs/README.md#configure). For metrics, it's
 `BACKEND_METRICS` (`victoriametrics`) - see

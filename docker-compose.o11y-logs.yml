@@ -27,6 +27,10 @@ services:
       file: config/logs/backends/${BACKEND_LOGS:-victorialogs}/compose.yml
       service: logs-store
 
+networks:
+  supabase-observability:
+    external: true
+
 volumes:
   loki_data:
   victorialogs_data:
