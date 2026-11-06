@@ -6,7 +6,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: bash -n scripts/*.sh
+      - name: Check Bash script syntax
+        run: |
+          for script in scripts/*.sh; do
+            bash -n "$script"
+          done
       - run: cp .env.example .env
       - name: Compose and Vector config, both backends
         run: |
