@@ -55,7 +55,7 @@ deliberate.
 
 ## Not covered yet
 
-Edge Functions structured logging, metrics, traces, dashboards, and
+Edge Functions structured logging, metrics, traces, per-service dashboards, and
 Kubernetes are all tracked on the [repo README](../../README.md#status), not
 duplicated here.
 

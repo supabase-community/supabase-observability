@@ -26,6 +26,7 @@ docker run --rm \
   -v "$PWD/jwt:/etc/otel/jwt:ro" \
   otel/opentelemetry-collector-contrib:0.153.0 \
   validate --config=/etc/otel/base.yaml --config=/etc/otel/backend.yaml
+scripts/check-dashboards.sh
 make verify-logs
 ```
 
