@@ -1,8 +1,8 @@
 # Dashboards
 
 Grafana shows what the logs and metrics stacks collect. This page covers the
-dashboard this repo ships, what to look at when one of its panels turns red,
-and how Grafana loads it. To start Grafana, see
+dashboards this repo ships, what to look at when an Overview panel turns red,
+and how Grafana loads them. To start Grafana, see
 [Start Grafana](../README.md#start-grafana).
 
 ## Open the Overview
@@ -26,6 +26,28 @@ where it differs.
 | Needs attention | Is anything wrong right now? Each panel turns red at the threshold of one of Supabase's [detection checks](https://supabase.com/docs/guides/observability/detecting), or at a threshold that matters when you run the stack yourself. |
 | Database | How busy is Postgres, and how close are its connections and replication slots to their limits? Connections by role, database size, rollbacks, cache hits, deadlocks and replication slot headroom. |
 | Service health | Which service is failing? Requests, error rate, 95th percentile latency and status for each service behind the gateway, plus a bar chart of responses by status class for each one. |
+
+## Open the API Gateway dashboard
+
+Open <http://127.0.0.1:3000/d/supabase-gateway>, or select **API Gateway
+dashboard** in the menu of the API Gateway bar chart or the Service health
+table on the Overview. It is in the same **Supabase** folder.
+
+The dashboard follows the API Gateway page in Supabase Studio.
+[studio-alignment.md](studio-alignment.md#api-gateway-dashboard) lists where
+it matches Studio and where it differs.
+
+| Row | What it answers |
+|---|---|
+| API Gateway | How many requests does the gateway answer, how many fail, how fast are the services, and how much data goes through? Total Requests, Response Errors, Response Speed and Network Traffic for the whole gateway. |
+| By service | Which service do the requests, errors, slow responses or traffic come from? The same four charts with one series for each service. |
+
+If Response Errors shows 4xx responses that no service shows under
+**Response Errors by service**, the gateway rejected those requests itself,
+or they went to Studio or pg-meta, which the second row leaves out. A
+rejected request usually means a client sends a missing or wrong API key.
+[Request fails, but the service shows nothing](../logs/troubleshooting.md#request-fails-but-the-service-shows-nothing)
+shows how to find those requests in the gateway's logs.
 
 ## When a panel turns red
 
@@ -59,27 +81,28 @@ docker exec supabase-db psql -U supabase_admin -d postgres -c \
    from pg_replication_slots;"
 ```
 
-## How Grafana loads the dashboard
+## How Grafana loads the dashboards
 
-Grafana reads two files from `config/dashboards/`.
+Grafana reads these files from `config/dashboards/`.
 
 | File | What it does |
 |---|---|
 | `grafana-provider.yaml` | Tells Grafana to load every dashboard file from one folder in the container and put the dashboards in the **Supabase** folder. |
-| `overview.json` | The Overview dashboard itself. |
+| `overview.json` | The Overview dashboard. |
+| `gateway.json` | The API Gateway dashboard. |
 
 `docker-compose.o11y-dashboards.yml` mounts each file at a fixed path, the
 same way it mounts the datasource files.
 
-The dashboard is read-only in Grafana, so the JSON file in this repo stays
-the only copy. To change the dashboard, edit `overview.json` and restart
+The dashboards are read-only in Grafana, so the JSON files in this repo stay
+the only copies. To change a dashboard, edit its JSON file and restart
 Grafana:
 
 ```bash
 docker restart supabase-observability-grafana
 ```
 
-The restart is needed because the file is mounted on its own. When an editor
+The restart is needed because each file is mounted on its own. When an editor
 or `git` replaces the file instead of writing into it, the container keeps
 seeing the old file until it restarts.
 
