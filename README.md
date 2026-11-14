@@ -2,9 +2,9 @@
 
 Community-maintained observability for self-hosted
 [Supabase](https://github.com/supabase/supabase). Logs and metrics
-collected into open-source backends, with a Grafana overview dashboard.
-Traces and per-service dashboards are planned - see [Status](#status) for
-what ships today.
+collected into open-source backends, with Grafana dashboards for the
+overview and Auth. Traces and the other per-service dashboards are planned -
+see [Status](#status) for what ships today.
 
 For anything about Supabase itself, see the
 [official documentation](https://supabase.com/docs).
@@ -23,7 +23,7 @@ open-source components you run yourself.
 | [Logs](docs/logs/README.md) | Available | Vector into VictoriaLogs, or Loki |
 | [Metrics](docs/metrics/README.md) | Available | OpenTelemetry Collector into VictoriaMetrics |
 | Traces | Planned | OpenTelemetry Collector, OTLP |
-| [Dashboards](docs/dashboards/README.md) | Overview available | Grafana |
+| [Dashboards](docs/dashboards/README.md) | Overview and Auth available | Grafana |
 | Alerting | Planned | vmalert, Alertmanager |
 | Kubernetes | Planned | Helm chart |
 
