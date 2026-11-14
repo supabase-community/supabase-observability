@@ -32,6 +32,7 @@ services:
       - ./config/logs/backends/${BACKEND_LOGS:-victorialogs}/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/logs.yaml:ro
       - ./config/dashboards/grafana-provider.yaml:/etc/grafana/provisioning/dashboards/supabase.yaml:ro
       - ./config/dashboards/overview.json:/etc/grafana/dashboards/overview.json:ro
+      - ./config/dashboards/auth.json:/etc/grafana/dashboards/auth.json:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1"]
       interval: 30s

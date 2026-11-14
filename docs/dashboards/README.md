@@ -27,6 +27,23 @@ where it differs.
 | Database | How busy is Postgres, and how close are its connections and replication slots to their limits? Connections by role, database size, rollbacks, cache hits, deadlocks and replication slot headroom. |
 | Service health | Which service is failing? Requests, error rate, 95th percentile latency and status for each service behind the gateway, plus a bar chart of responses by status class for each one. |
 
+## Open the Auth dashboard
+
+Open <http://127.0.0.1:3000/d/supabase-auth>. It is in the same **Supabase**
+folder.
+
+The dashboard follows the Auth page in Supabase Studio.
+[studio-alignment.md](studio-alignment.md#auth-dashboard) lists where it
+matches Studio and where it differs.
+
+| Row | What it answers |
+|---|---|
+| Usage | How many sign-in attempts, sign-ups and password reset requests does Auth receive? Sign In Attempts, Sign Ups and Password Reset Requests, counted from Auth's own metrics. |
+| Monitoring | Which errors does Auth return? Errors by status code at the gateway, and errors by Auth endpoint. |
+| Performance | How long do sign-ins and sign-ups take? The average and percentiles of the time Auth takes to answer them. |
+| Auth API Gateway | How many requests reach Auth, how many fail, how fast does it answer, and how much data goes through? Total Requests, Response Errors, Response Speed and Network Traffic for Auth. |
+| Auth server | Can Auth send emails, and how fast are its database queries? Email attempts and failures, email rate limit hits and the time Auth's queries to Postgres take. Studio's Auth page has no charts for these. |
+
 ## When a panel turns red
 
 | Panel | What to look at first |
@@ -59,27 +76,28 @@ docker exec supabase-db psql -U supabase_admin -d postgres -c \
    from pg_replication_slots;"
 ```
 
-## How Grafana loads the dashboard
+## How Grafana loads the dashboards
 
-Grafana reads two files from `config/dashboards/`.
+Grafana reads these files from `config/dashboards/`.
 
 | File | What it does |
 |---|---|
 | `grafana-provider.yaml` | Tells Grafana to load every dashboard file from one folder in the container and put the dashboards in the **Supabase** folder. |
-| `overview.json` | The Overview dashboard itself. |
+| `overview.json` | The Overview dashboard. |
+| `auth.json` | The Auth dashboard. |
 
 `docker-compose.o11y-dashboards.yml` mounts each file at a fixed path, the
 same way it mounts the datasource files.
 
-The dashboard is read-only in Grafana, so the JSON file in this repo stays
-the only copy. To change the dashboard, edit `overview.json` and restart
+The dashboards are read-only in Grafana, so the JSON files in this repo stay
+the only copies. To change a dashboard, edit its JSON file and restart
 Grafana:
 
 ```bash
 docker restart supabase-observability-grafana
 ```
 
-The restart is needed because the file is mounted on its own. When an editor
+The restart is needed because each file is mounted on its own. When an editor
 or `git` replaces the file instead of writing into it, the container keeps
 seeing the old file until it restarts.
 
