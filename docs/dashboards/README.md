@@ -27,6 +27,23 @@ where it differs.
 | Database | How busy is Postgres, and how close are its connections and replication slots to their limits? Connections by role, database size, rollbacks, cache hits, deadlocks and replication slot headroom. |
 | Service health | Which service is failing? Requests, error rate, 95th percentile latency and status for each service behind the gateway, plus a bar chart of responses by status class for each one. |
 
+## Open the Auth dashboard
+
+Open <http://127.0.0.1:3000/d/supabase-auth>. It is in the same **Supabase**
+folder.
+
+The dashboard follows the Auth page in Supabase Studio.
+[studio-alignment.md](studio-alignment.md#auth-dashboard) lists where it
+matches Studio and where it differs.
+
+| Row | What it answers |
+|---|---|
+| Usage | How many sign-in attempts, sign-ups and password reset requests does Auth receive? Sign In Attempts, Sign Ups and Password Reset Requests, counted from Auth's own metrics. |
+| Monitoring | Which errors does Auth return? Errors by status code at the gateway, and errors by Auth endpoint. |
+| Performance | How long do sign-ins and sign-ups take? The average and percentiles of the time Auth takes to answer them. |
+| Auth API Gateway | How many requests reach Auth, how many fail, how fast does it answer, and how much data goes through? Total Requests, Response Errors, Response Speed and Network Traffic for Auth. |
+| Auth server | Can Auth send emails, and how fast are its database queries? Email attempts and failures, email rate limit hits and the time Auth's queries to Postgres take. Studio's Auth page has no charts for these. |
+
 ## When a panel turns red
 
 | Panel | What to look at first |
