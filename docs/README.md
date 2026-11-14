@@ -218,9 +218,9 @@ set up - there is nothing to add by hand. Both show an error until their
 stores are running, so start [logs](#start-logs) and
 [metrics](#start-metrics) first.
 
-The **Overview** dashboard is under Dashboards, Supabase. See
-[dashboards/README.md](dashboards/README.md) for what it shows and what to
-do when one of its panels turns red.
+The **Overview** and **API Gateway** dashboards are under Dashboards,
+Supabase. See [dashboards/README.md](dashboards/README.md) for what they show
+and what to do when an Overview panel turns red.
 
 Worth knowing:
 
@@ -323,7 +323,7 @@ plugin installed:
 | [logs/known-limitations.md](logs/known-limitations.md) | You want to know what's currently broken or incomplete in the log pipeline |
 | [metrics/pipeline-internals.md](metrics/pipeline-internals.md) | You want to know why the metrics pipeline behaves the way it does |
 | [metrics/known-limitations.md](metrics/known-limitations.md) | You want to know what's currently broken or incomplete in the metrics pipeline |
-| [dashboards/README.md](dashboards/README.md) | You opened the Overview dashboard, or one of its panels turned red |
-| [dashboards/studio-alignment.md](dashboards/studio-alignment.md) | You want to compare the Overview with Supabase Studio |
-| [dashboards/known-limitations.md](dashboards/known-limitations.md) | You want to know what the Overview does not show or counts differently |
+| [dashboards/README.md](dashboards/README.md) | You opened the Overview or API Gateway dashboard, or an Overview panel turned red |
+| [dashboards/studio-alignment.md](dashboards/studio-alignment.md) | You want to compare the dashboards with Supabase Studio |
+| [dashboards/known-limitations.md](dashboards/known-limitations.md) | You want to know what the dashboards do not show or count differently |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | You're opening a PR |

@@ -52,8 +52,10 @@ jobs:
             BACKEND_LOGS=$b \
               docker compose -f docker-compose.o11y-dashboards.yml up -d --wait --wait-timeout 180
             check "$b"
-            curl -sf -o /dev/null -u "admin:changeme" \
-              http://127.0.0.1:3000/api/dashboards/uid/supabase-overview
+            for uid in supabase-overview supabase-gateway; do
+              curl -sf -o /dev/null -u "admin:changeme" \
+                http://127.0.0.1:3000/api/dashboards/uid/$uid
+            done
             docker compose -f docker-compose.o11y-dashboards.yml down -v
           done
       - name: Grafana log, on failure
