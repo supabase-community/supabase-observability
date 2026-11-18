@@ -31,7 +31,11 @@ services:
       - ./config/metrics/backends/${BACKEND_METRICS:-victoriametrics}/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/metrics.yaml:ro
       - ./config/logs/backends/${BACKEND_LOGS:-victorialogs}/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/logs.yaml:ro
       - ./config/dashboards/grafana-provider.yaml:/etc/grafana/provisioning/dashboards/supabase.yaml:ro
-      - ./config/dashboards/overview.json:/etc/grafana/dashboards/overview.json:ro
+      # The whole folder is mounted, so Grafana loads every .json file in
+      # config/dashboards/ as a dashboard. To add a dashboard, add its JSON
+      # file to that folder. This compose file does not change.
+      - ./config/dashboards:/etc/grafana/dashboards:ro
+
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1"]
       interval: 30s

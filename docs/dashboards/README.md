@@ -59,29 +59,23 @@ docker exec supabase-db psql -U supabase_admin -d postgres -c \
    from pg_replication_slots;"
 ```
 
-## How Grafana loads the dashboard
+## How Grafana loads the dashboards
 
-Grafana reads two files from `config/dashboards/`.
+Grafana reads these files from `config/dashboards/`.
 
 | File | What it does |
 |---|---|
 | `grafana-provider.yaml` | Tells Grafana to load every dashboard file from one folder in the container and put the dashboards in the **Supabase** folder. |
-| `overview.json` | The Overview dashboard itself. |
+| `*.json` | One dashboard in each file, such as `overview.json`. |
 
-`docker-compose.o11y-dashboards.yml` mounts each file at a fixed path, the
-same way it mounts the datasource files.
+`docker-compose.o11y-dashboards.yml` mounts the whole `config/dashboards/`
+folder in the container, so adding a dashboard does not require editing the
+compose file.
 
-The dashboard is read-only in Grafana, so the JSON file in this repo stays
-the only copy. To change the dashboard, edit `overview.json` and restart
-Grafana:
-
-```bash
-docker restart supabase-observability-grafana
-```
-
-The restart is needed because the file is mounted on its own. When an editor
-or `git` replaces the file instead of writing into it, the container keeps
-seeing the old file until it restarts.
+The dashboards are read-only in Grafana, so the JSON files in this repo stay
+the only copies. To change a dashboard, edit its JSON file. Grafana checks
+the folder every ten seconds, so a new or changed file appears after a short
+wait, without a restart.
 
 ## Known limitations
 
