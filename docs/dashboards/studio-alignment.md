@@ -1,8 +1,8 @@
 # Dashboards and Supabase Studio
 
-The Overview dashboard follows the layout, names and status rules of the
-Observability Overview page in Supabase Studio, so that it looks familiar to
-people who know Supabase's managed platform. Self-hosted Supabase does not
+Each dashboard follows the layout, names and rules of a page in Supabase
+Studio's Observability section, so that it looks familiar to people who know
+Supabase's managed platform. Self-hosted Supabase does not
 have the data behind every Studio chart, so some charts are replaced or left
 out. This page lists each difference and the reason for it.
 
@@ -75,7 +75,7 @@ uses the same status rule.
 | Unhealthy | Errors are 1% of requests or more |
 | Healthy | Anything else |
 
-The data behind it is different.
+The data behind the table is different from Studio's.
 
 - Studio counts log events per service by level. This dashboard counts
   responses at the gateway by status class. Errors are 5xx responses, and
