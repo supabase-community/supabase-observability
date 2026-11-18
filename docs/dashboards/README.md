@@ -1,8 +1,8 @@
 # Dashboards
 
 Grafana shows what the logs and metrics stacks collect. This page covers the
-dashboard this repo ships, what to look at when one of its panels turns red,
-and how Grafana loads it. To start Grafana, see
+dashboards this repo ships, what to look at when an Overview panel turns red,
+and how Grafana loads them. To start Grafana, see
 [Start Grafana](../README.md#start-grafana).
 
 ## Open the Overview
