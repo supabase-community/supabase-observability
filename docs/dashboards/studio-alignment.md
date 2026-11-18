@@ -93,6 +93,66 @@ The data behind the table is different from Studio's.
 - The table adds a 95th percentile latency column, which Studio's Overview
   does not show.
 
+## Data API dashboard
+
+Grafana loads the dashboard from `config/dashboards/rest.json`. It follows the
+Data API page in Studio's Observability section and uses that page's chart
+names. Studio builds that page from the gateway's request logs. This dashboard
+reads the Envoy gateway's own metrics for the `rest` cluster instead, so it
+works with any Prometheus-compatible metrics backend.
+
+### Data API
+
+The first row has Studio's four charts for the requests that reach PostgREST.
+
+| Studio | This dashboard | Metric |
+|---|---|---|
+| Total Requests | Total Requests | `envoy_cluster_upstream_rq_total{envoy_cluster_name="rest",envoy_response_code=""}` |
+| Response Errors | Response Errors, split into 4xx and 5xx | `envoy_cluster_upstream_rq_xx_total{envoy_cluster_name="rest"}` for status classes 4 and 5 |
+| Response Speed | Response Speed, as an average and a 95th percentile | `envoy_cluster_upstream_rq_time_sum`, `envoy_cluster_upstream_rq_time_count` and `envoy_cluster_upstream_rq_time_bucket` for `rest` |
+| Network Traffic | Network Traffic, as ingress and egress | `envoy_cluster_upstream_cx_tx_bytes_total` for ingress and `envoy_cluster_upstream_cx_rx_bytes_total` for egress, for `rest` |
+| Top routes under Total Requests, Response Errors and Response Speed | Not shown | Envoy's metrics have no request path. |
+| Add filter | Not shown | Studio filters with fields from its request logs, and Envoy's metrics have no request path or other log fields. |
+
+`envoy_cluster_upstream_rq_total` needs `envoy_response_code=""`. Envoy also
+writes one series with that name for each response code, and the filter keeps
+only the series that counts every request, so each request is counted once.
+
+The numbers differ from Studio's in these ways.
+
+- **Total Requests** and **Response Errors** count the requests that reach
+  PostgREST. Studio counts every request to a `/rest` path in the gateway's
+  logs, which also includes the requests that the gateway rejects itself.
+- **Total Requests** and the other charts include GraphQL requests. The
+  gateway sends `/graphql/v1` to PostgREST, so Envoy counts those requests in
+  the `rest` cluster. Studio's Data API page counts requests to `/rest`
+  paths. GraphQL is off by default on new installs, because `pg_graphql` is
+  disabled.
+- **Response Speed** shows the average that Studio shows, plus a 95th
+  percentile. Requests the gateway rejects itself never reach PostgREST, so
+  they have no response time to count.
+- **Network Traffic** counts the bytes on the connection between the gateway
+  and PostgREST, headers included. Studio's chart shows ingress only, as the
+  sum of the `Content-Length` header of each request, so the numbers here are
+  larger. For egress, which is billed, Studio links to the organization's
+  Usage page. A self-hosted stack has no Usage page, so this panel shows
+  egress too, below the axis.
+
+### PostgREST
+
+The second row has no counterpart on Studio's Data API page. It reads
+PostgREST's own metrics, which the metrics stack
+[scrapes from PostgREST's admin port](../metrics/README.md#what-gets-scraped).
+These metrics cover PostgREST's connection pool and caches, not single
+requests, so the first row reads Envoy's metrics instead.
+
+| Panel | Metric |
+|---|---|
+| Pool Connections | `pgrst_db_pool_max` and `pgrst_db_pool_available` |
+| Pool Waiting and Timeouts | `pgrst_db_pool_waiting` and `pgrst_db_pool_timeouts_total` |
+| Schema Cache Loads | `pgrst_schema_cache_loads_total`, by `status` |
+| JWT Cache Hit Ratio | `pgrst_jwt_cache_hits_total` divided by `pgrst_jwt_cache_requests_total` |
+
 ## Known limitations
 
 See [known-limitations.md](known-limitations.md).

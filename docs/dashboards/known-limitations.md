@@ -19,6 +19,8 @@ make, that the dashboards cannot show.
 | 401 and 403 failures | The gateway's own totals group responses only by class, so 401 and 403 cannot be told apart from 404. |
 | Sessions that block other sessions | postgres-exporter has no metric for blocking sessions. Studio's **Database Connections** page, under Observability, shows them live on self-hosted Supabase as well. |
 | Storage in **Targets down** | Storage pushes its metrics instead of being scraped, so it has no `up` series. |
+| Top routes (Data API dashboard) | Envoy's metrics have no request path, so the Data API dashboard cannot list the busiest, failing or slowest routes the way Studio does. |
+| Add filter (Data API dashboard) | Studio filters the charts with fields from its request logs. Envoy's metrics have no request path or other log fields, so the dashboard has no filter. |
 
 ## Numbers that differ from Studio's or from Supabase's detection checks
 
@@ -27,3 +29,7 @@ make, that the dashboards cannot show.
 | Request counts and error rates | Studio counts every request in its logs. Envoy creates the counter for a status class the first time a service returns a response of that class. VictoriaMetrics counts the counter's first reading in `increase()` only when the reading is small compared with how fast the counter grows afterwards. For example, 9 responses before the first scrape are counted, but 15 are not when no more follow. `rate()` always needs two readings, so it never counts the first one. This can happen once for each service and status class after Envoy starts. |
 | API server errors (1h), Auth server errors (1h) | Supabase's detection check also asks for at least 20 errors and at least twice the rate of the hour before. A single panel cannot compare two hours, so the panels apply only the 1% rate and the 100-request minimum. |
 | Longest open transaction | The panel measures from the start of the transaction. Supabase's detection check measures an active query from the start of the query. |
+| Total Requests and Response Errors (Data API dashboard) | Studio counts every request to a `/rest` path in the gateway's logs. The panels count only the requests that reached PostgREST, so requests the gateway rejected itself are not included. |
+| Total Requests and the other API charts (Data API dashboard) | Studio's Data API page counts requests to `/rest` paths. The charts also count GraphQL requests, because the gateway sends `/graphql/v1` to PostgREST. |
+| Response Speed (Data API dashboard) | The panel does not count requests the gateway rejected itself, because they never reach PostgREST and so have no response time. |
+| Network Traffic (Data API dashboard) | The panel counts every byte on the connection between the gateway and PostgREST, headers included. Studio's chart shows ingress only, as the sum of the `Content-Length` header of each request, so the panel's numbers are larger. |
