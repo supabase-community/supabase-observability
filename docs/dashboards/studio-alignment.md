@@ -2,9 +2,13 @@
 
 Each dashboard follows the layout, names and rules of a page in Supabase
 Studio's Observability section, so that it looks familiar to people who know
-Supabase's managed platform. Self-hosted Supabase does not
-have the data behind every Studio chart, so some charts are replaced or left
-out. This page lists each difference and the reason for it.
+Supabase's managed platform. Studio's
+[reports](https://supabase.com/docs/guides/observability/reports) are part of
+Supabase Cloud, where Studio builds them from the platform's logs and
+infrastructure metrics. These dashboards build the same pages from the
+metrics that a self-hosted stack exposes, so a few charts are worked out
+differently or replaced. This page lists each difference and the reason for
+it.
 
 ## Overview dashboard
 
@@ -42,7 +46,7 @@ uses. The rest of the detection check's conditions are not applied; see
 | Disk Usage | Database size, for the `postgres` database only | `pg_database_size_bytes`. Studio shows how full the disk is. This panel shows only the size of the database, because the size of the disk needs host metrics. |
 | CPU, Memory | Not shown | These need host and container metrics, which are not among the [metrics this stack collects](../metrics/README.md#what-gets-scraped) yet. |
 | Disk IO balance | Not shown | This is the burst balance of the managed platform's disks. Self-hosted disks have no equivalent value. |
-| Slow Queries | Not shown | This needs `pg_stat_statements` queries in postgres-exporter. |
+| Slow Queries | Not shown | A slow queries panel needs `pg_stat_statements` queries in postgres-exporter. Studio's **Query Performance** page, under Observability, lists slow queries on self-hosted Supabase as well. |
 
 Database Connections names each role the way Studio does.
 
