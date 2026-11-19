@@ -35,7 +35,7 @@ where it differs.
 | API server errors (1h) | Find the service whose bar chart under **Service health** shows 5xx responses, then read that service's logs. [Finding the actual error when your app breaks](../logs/troubleshooting.md) has a section for each common case. |
 | Auth server errors (1h) | Read the Auth logs. [Sign-in fails with no useful detail](../logs/troubleshooting.md#sign-in-fails-with-no-useful-detail) covers the usual causes. |
 | Connection pressure | Check which role grows in **Database Connections**. If Postgres or Other roles grows, connect those clients through the pooler instead of directly. PostgREST opens at most a fixed number of connections, set by its pool size. If Reserved (`supabase_admin`) grows, those connections belong to Supabase's own services, such as Realtime and the pooler. |
-| Longest open transaction | List the open transactions in Postgres, oldest first, as shown below. |
+| Longest open transaction | Open Studio's **Database Connections** page, under Observability, to see each session's state and which sessions block others. To list the open transactions from a terminal instead, run the first command below. |
 | Inactive replication slots | List the slots, as shown below. Realtime and logical replication create slots of their own, so find out what a slot belongs to before you drop it. |
 | Deadlocks | Read the Postgres logs. Each deadlock is logged with the statements involved. |
 
