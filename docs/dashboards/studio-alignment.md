@@ -112,7 +112,7 @@ The first row has Studio's four charts for the whole gateway.
 |---|---|---|
 | Total Requests | Total Requests | `envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix="ingress_http"}` |
 | Response Errors | Response Errors, split into 4xx and 5xx | `envoy_http_downstream_rq_xx_total{envoy_http_conn_manager_prefix="ingress_http"}` for status classes 4 and 5 |
-+| Response Speed | Response Speed, as an average and a 95th percentile | `envoy_cluster_upstream_rq_time_sum`, `envoy_cluster_upstream_rq_time_count` and `envoy_cluster_upstream_rq_time_bucket` for the five services |
+| Response Speed | Response Speed, as an average and a 95th percentile | `envoy_cluster_upstream_rq_time_sum`, `envoy_cluster_upstream_rq_time_count` and `envoy_cluster_upstream_rq_time_bucket` for the five services |
 | Network Traffic | Network Traffic, as ingress and egress | `envoy_cluster_upstream_cx_tx_bytes_total` for ingress and `envoy_cluster_upstream_cx_rx_bytes_total` for egress, for the five services |
 | Requests by Geography | Not shown | Studio maps each request to its country from its request logs. Envoy's metrics carry no country. |
 | Top routes under Total Requests, Response Errors and Response Speed | Not shown | Envoy's metrics have no request path. |
