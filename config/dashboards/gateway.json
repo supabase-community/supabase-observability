@@ -58,7 +58,7 @@
       "type": "timeseries",
       "id": 2,
       "title": "Total Requests",
-      "description": "Every request the gateway answered, including requests it rejected itself (for example a missing or wrong API key) and requests to Studio and pg-meta. The legend shows the total for the selected time range.",
+      "description": "Every request the gateway answered, including requests it rejected itself (for example a missing or wrong API key) and requests to Studio and pg-meta. The chart shows the rate per second, and the legend shows the total for the selected time range.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -77,7 +77,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"ingress_http\"}[$__interval]))",
+          "expr": "sum(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"ingress_http\"}[$__rate_interval]))",
           "legendFormat": "Requests",
           "instant": false,
           "range": true
@@ -97,7 +97,6 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 0,
           "noValue": "No requests",
           "custom": {
             "drawStyle": "bars",
@@ -107,7 +106,8 @@
               "mode": "none",
               "group": "A"
             },
-            "showPoints": "never"
+            "showPoints": "never",
+            "axisLabel": "Per second"
           },
           "min": 0
         },
@@ -143,6 +143,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Requests"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
           }
         ]
       },
@@ -165,7 +180,7 @@
       "type": "timeseries",
       "id": 3,
       "title": "Response Errors",
-      "description": "Responses with a 4xx or 5xx status code, including the 401 and 403 responses the gateway returns itself when an API key is missing or wrong. The legend shows the total for the selected time range.",
+      "description": "Responses with a 4xx or 5xx status code, including the 401 and 403 responses the gateway returns itself when an API key is missing or wrong. The chart shows the rate per second, and the legend shows the total for the selected time range.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -184,7 +199,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (envoy_response_code_class) (increase(envoy_http_downstream_rq_xx_total{envoy_http_conn_manager_prefix=\"ingress_http\",envoy_response_code_class=~\"4|5\"}[$__interval])) > 0",
+          "expr": "sum by (envoy_response_code_class) (rate(envoy_http_downstream_rq_xx_total{envoy_http_conn_manager_prefix=\"ingress_http\",envoy_response_code_class=~\"4|5\"}[$__rate_interval])) > 0",
           "legendFormat": "{{envoy_response_code_class}}xx",
           "instant": false,
           "range": true
@@ -204,7 +219,6 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 0,
           "noValue": "No errors",
           "custom": {
             "drawStyle": "bars",
@@ -214,7 +228,8 @@
               "mode": "normal",
               "group": "A"
             },
-            "showPoints": "never"
+            "showPoints": "never",
+            "axisLabel": "Per second"
           },
           "min": 0
         },
@@ -397,7 +412,7 @@
       "type": "timeseries",
       "id": 5,
       "title": "Network Traffic",
-      "description": "Bytes between the gateway and PostgREST, Auth, Edge Functions, Storage and Realtime. Ingress is what the gateway sent to the services, which is the requests. Egress is what the services sent back, which is the responses. Both count headers as well as bodies. The legend shows the total for the selected time range.",
+      "description": "Bytes between the gateway and PostgREST, Auth, Edge Functions, Storage and Realtime. Ingress is what the gateway sent to the services, which is the requests. Egress is what the services sent back, which is the responses. Both count headers as well as bodies. The chart shows the rate per second, and the legend shows the total for the selected time range.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -416,7 +431,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(envoy_cluster_upstream_cx_tx_bytes_total{envoy_cluster_name=~\"rest|auth|functions|storage|realtime\"}[$__interval]))",
+          "expr": "sum(rate(envoy_cluster_upstream_cx_tx_bytes_total{envoy_cluster_name=~\"rest|auth|functions|storage|realtime\"}[$__rate_interval]))",
           "legendFormat": "Ingress",
           "instant": false,
           "range": true
@@ -427,7 +442,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(envoy_cluster_upstream_cx_rx_bytes_total{envoy_cluster_name=~\"rest|auth|functions|storage|realtime\"}[$__interval]))",
+          "expr": "sum(rate(envoy_cluster_upstream_cx_rx_bytes_total{envoy_cluster_name=~\"rest|auth|functions|storage|realtime\"}[$__rate_interval]))",
           "legendFormat": "Egress",
           "instant": false,
           "range": true
@@ -468,7 +483,8 @@
               "mode": "none",
               "group": "A"
             },
-            "showPoints": "never"
+            "showPoints": "never",
+            "axisLabel": "Per second"
           }
         },
         "overrides": [
@@ -554,6 +570,36 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ingress"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Egress"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
           }
         ]
       },
@@ -589,7 +635,7 @@
       "type": "timeseries",
       "id": 7,
       "title": "Total Requests by service",
-      "description": "Requests that reached each service through the gateway. Requests the gateway rejected itself are not counted here. The legend shows the total for the selected time range.",
+      "description": "Requests that reached each service through the gateway. Requests the gateway rejected itself are not counted here. The chart shows the rate per second, and the legend shows the total for the selected time range.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -645,7 +691,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (envoy_cluster_name) (increase(envoy_cluster_upstream_rq_total{envoy_cluster_name=~\"rest|auth|functions|storage|realtime\",envoy_response_code=\"\"}[$__interval])) > 0",
+          "expr": "sum by (envoy_cluster_name) (rate(envoy_cluster_upstream_rq_total{envoy_cluster_name=~\"rest|auth|functions|storage|realtime\",envoy_response_code=\"\"}[$__rate_interval])) > 0",
           "legendFormat": "{{envoy_cluster_name}}",
           "instant": false,
           "range": true
@@ -665,7 +711,6 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 0,
           "noValue": "No requests",
           "custom": {
             "drawStyle": "bars",
@@ -675,7 +720,8 @@
               "mode": "normal",
               "group": "A"
             },
-            "showPoints": "never"
+            "showPoints": "never",
+            "axisLabel": "Per second"
           },
           "min": 0
         },
@@ -808,7 +854,7 @@
       "type": "timeseries",
       "id": 8,
       "title": "Response Errors by service",
-      "description": "Responses with a 4xx or 5xx status code from each service. The 401 and 403 responses the gateway returns itself are only in Response Errors above. The legend shows the total for the selected time range.",
+      "description": "Responses with a 4xx or 5xx status code from each service. The 401 and 403 responses the gateway returns itself are only in Response Errors above. The chart shows the rate per second, and the legend shows the total for the selected time range.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -864,7 +910,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (envoy_cluster_name) (increase(envoy_cluster_upstream_rq_xx_total{envoy_cluster_name=~\"rest|auth|functions|storage|realtime\",envoy_response_code_class=~\"4|5\"}[$__interval])) > 0",
+          "expr": "sum by (envoy_cluster_name) (rate(envoy_cluster_upstream_rq_xx_total{envoy_cluster_name=~\"rest|auth|functions|storage|realtime\",envoy_response_code_class=~\"4|5\"}[$__rate_interval])) > 0",
           "legendFormat": "{{envoy_cluster_name}}",
           "instant": false,
           "range": true
@@ -884,7 +930,6 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 0,
           "noValue": "No errors",
           "custom": {
             "drawStyle": "bars",
@@ -894,7 +939,8 @@
               "mode": "normal",
               "group": "A"
             },
-            "showPoints": "never"
+            "showPoints": "never",
+            "axisLabel": "Per second"
           },
           "min": 0
         },
@@ -1205,7 +1251,7 @@
       "type": "timeseries",
       "id": 10,
       "title": "Network Traffic by service",
-      "description": "Bytes between the gateway and each service. Ingress, above the axis, is the requests sent to the service. Egress, below the axis, is the responses it sent back. Both count headers as well as bodies. The legend shows the total for the selected time range.",
+      "description": "Bytes between the gateway and each service. Ingress, above the axis, is the requests sent to the service. Egress, below the axis, is the responses it sent back. Both count headers as well as bodies. The chart shows the rate per second, and the legend shows the total for the selected time range.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1261,7 +1307,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (envoy_cluster_name) (increase(envoy_cluster_upstream_cx_tx_bytes_total{envoy_cluster_name=~\"rest|auth|functions|storage|realtime\"}[$__interval])) > 0",
+          "expr": "sum by (envoy_cluster_name) (rate(envoy_cluster_upstream_cx_tx_bytes_total{envoy_cluster_name=~\"rest|auth|functions|storage|realtime\"}[$__rate_interval])) > 0",
           "legendFormat": "{{envoy_cluster_name}} ingress",
           "instant": false,
           "range": true
@@ -1272,7 +1318,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (envoy_cluster_name) (increase(envoy_cluster_upstream_cx_rx_bytes_total{envoy_cluster_name=~\"rest|auth|functions|storage|realtime\"}[$__interval])) > 0",
+          "expr": "sum by (envoy_cluster_name) (rate(envoy_cluster_upstream_cx_rx_bytes_total{envoy_cluster_name=~\"rest|auth|functions|storage|realtime\"}[$__rate_interval])) > 0",
           "legendFormat": "{{envoy_cluster_name}} egress",
           "instant": false,
           "range": true
@@ -1313,7 +1359,8 @@
               "mode": "normal",
               "group": "A"
             },
-            "showPoints": "never"
+            "showPoints": "never",
+            "axisLabel": "Per second"
           }
         },
         "overrides": [

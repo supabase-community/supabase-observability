@@ -119,6 +119,9 @@ The first row has Studio's four charts for the whole gateway.
 
 The metrics differ from Studio's logs in these ways.
 
+- **Total Requests**, **Response Errors** and **Network Traffic** draw each
+  bar as a rate per second, and the legend shows the total for the selected
+  time range. Studio draws a count for each interval.
 - **Total Requests** and **Response Errors** use the gateway's own totals,
   the same ones as the Overview's API Gateway row. They include requests the
   gateway answers itself, such as a 401 for a missing API key, and requests
@@ -142,7 +145,8 @@ The metrics differ from Studio's logs in these ways.
 ### By service
 
 The second row repeats the four charts with one series for each service, in
-the order and with the names the Overview uses.
+the order and with the names the Overview uses. Like the first row, the
+charts draw rates per second and show the totals in the legend.
 
 | Panel | Metric |
 |---|---|
