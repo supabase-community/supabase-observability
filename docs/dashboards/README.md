@@ -49,6 +49,20 @@ rejected request usually means a client sends a missing or wrong API key.
 [Request fails, but the service shows nothing](../logs/troubleshooting.md#request-fails-but-the-service-shows-nothing)
 shows how to find those requests in the gateway's logs.
 
+## Open the Data API dashboard
+
+Open <http://127.0.0.1:3000/d/supabase-rest>. It is in the same **Supabase**
+folder.
+
+The dashboard follows the Data API page in Supabase Studio.
+[studio-alignment.md](studio-alignment.md#data-api-dashboard) lists where it
+matches Studio and where it differs.
+
+| Row | What it answers |
+|---|---|
+| Data API | How many requests reach PostgREST, how many fail, how fast does it answer, and how much data goes through? Total Requests, Response Errors, Response Speed and Network Traffic for PostgREST. |
+| PostgREST | Is PostgREST running out of database connections, or failing to read the schema? Pool connections, requests waiting for a connection and timeouts, schema cache loads and the JWT cache hit ratio. Studio's Data API page has no charts for these. |
+
 ## When a panel turns red
 
 | Panel | What to look at first |
