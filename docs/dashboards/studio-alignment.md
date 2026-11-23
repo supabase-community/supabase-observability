@@ -101,6 +101,11 @@ names. Studio builds that page from the gateway's request logs. This dashboard
 reads the Envoy gateway's own metrics for the `rest` cluster instead, so it
 works with any Prometheus-compatible metrics backend.
 
+Every chart that counts requests, bytes or schema cache loads draws each bar
+as a rate per second, and the legend shows the total for the selected time
+range. Studio's charts draw a count for each interval. Pool Waiting and
+Timeouts draws timeouts as a rate per second, on its right axis.
+
 ### Data API
 
 The first row has Studio's four charts for the requests that reach PostgREST.
