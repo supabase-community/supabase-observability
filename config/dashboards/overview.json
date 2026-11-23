@@ -1075,6 +1075,13 @@
         "x": 0,
         "y": 19
       },
+      "links": [
+        {
+          "title": "API Gateway dashboard",
+          "url": "/d/supabase-gateway?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
       "targets": [
         {
           "refId": "A",
@@ -1367,6 +1374,13 @@
         "x": 0,
         "y": 29
       },
+      "links": [
+        {
+          "title": "API Gateway dashboard",
+          "url": "/d/supabase-gateway?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
       "targets": [
         {
           "refId": "A",
