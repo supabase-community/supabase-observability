@@ -108,6 +108,10 @@ counts the requests to the endpoint that does that job. Auth's logs record
 each event with its type and its user, so Studio's user counts and its split
 by sign-in type cannot be reproduced from metrics.
 
+Every chart that counts requests, emails or bytes draws each bar as a rate
+per second, and the legend shows the total for the selected time range.
+Studio's charts draw a count for each interval.
+
 ### Usage
 
 | Studio | This dashboard | Metric |
