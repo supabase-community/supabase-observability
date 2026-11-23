@@ -25,7 +25,7 @@ where it differs.
 |---|---|
 | Needs attention | Is anything wrong right now? Each panel turns red at the threshold of one of Supabase's [detection checks](https://supabase.com/docs/guides/observability/detecting), or at a threshold that matters when you run the stack yourself. |
 | Database | How busy is Postgres, and how close are its connections and replication slots to their limits? Connections by role, database size, rollbacks, cache hits, deadlocks and replication slot headroom. |
-| Service health | Which service is failing? Requests, error rate, 95th percentile latency and status for each service behind the gateway, plus a bar chart of responses by status class for each one. |
+| Service health | Which service is failing? Requests, error rate, 95th percentile latency and status for each service behind the gateway, plus a bar chart of responses per second by status class for each one. |
 
 ## Open the API Gateway dashboard
 
