@@ -1075,6 +1075,13 @@
         "x": 0,
         "y": 19
       },
+      "links": [
+        {
+          "title": "API Gateway dashboard",
+          "url": "/d/supabase-gateway?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
       "targets": [
         {
           "refId": "A",
@@ -1355,7 +1362,7 @@
       "type": "timeseries",
       "id": 18,
       "title": "API Gateway",
-      "description": "Responses from the gateway by status class, including requests the gateway rejected itself (for example a missing API key).",
+      "description": "Responses per second from the gateway by status class, including requests the gateway rejected itself (for example a missing API key).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1367,6 +1374,13 @@
         "x": 0,
         "y": 29
       },
+      "links": [
+        {
+          "title": "API Gateway dashboard",
+          "url": "/d/supabase-gateway?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
       "targets": [
         {
           "refId": "A",
@@ -1374,7 +1388,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (envoy_response_code_class) (increase(envoy_http_downstream_rq_xx_total{envoy_http_conn_manager_prefix=\"ingress_http\"}[$__interval])) > 0",
+          "expr": "sum by (envoy_response_code_class) (rate(envoy_http_downstream_rq_xx_total{envoy_http_conn_manager_prefix=\"ingress_http\"}[$__rate_interval])) > 0",
           "legendFormat": "{{envoy_response_code_class}}xx",
           "instant": false,
           "range": true
@@ -1382,8 +1396,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 0,
+          "unit": "reqps",
           "min": 0,
           "noValue": "No requests",
           "custom": {
@@ -1476,7 +1489,7 @@
       "type": "timeseries",
       "id": 19,
       "title": "PostgREST",
-      "description": "Responses from PostgREST through the gateway by status class.",
+      "description": "Responses per second from PostgREST through the gateway by status class.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1495,7 +1508,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (envoy_response_code_class) (increase(envoy_cluster_upstream_rq_xx_total{envoy_cluster_name=\"rest\"}[$__interval])) > 0",
+          "expr": "sum by (envoy_response_code_class) (rate(envoy_cluster_upstream_rq_xx_total{envoy_cluster_name=\"rest\"}[$__rate_interval])) > 0",
           "legendFormat": "{{envoy_response_code_class}}xx",
           "instant": false,
           "range": true
@@ -1503,8 +1516,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 0,
+          "unit": "reqps",
           "min": 0,
           "noValue": "No requests",
           "custom": {
@@ -1597,7 +1609,7 @@
       "type": "timeseries",
       "id": 20,
       "title": "Auth",
-      "description": "Responses from Auth through the gateway by status class.",
+      "description": "Responses per second from Auth through the gateway by status class.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1616,7 +1628,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (envoy_response_code_class) (increase(envoy_cluster_upstream_rq_xx_total{envoy_cluster_name=\"auth\"}[$__interval])) > 0",
+          "expr": "sum by (envoy_response_code_class) (rate(envoy_cluster_upstream_rq_xx_total{envoy_cluster_name=\"auth\"}[$__rate_interval])) > 0",
           "legendFormat": "{{envoy_response_code_class}}xx",
           "instant": false,
           "range": true
@@ -1624,8 +1636,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 0,
+          "unit": "reqps",
           "min": 0,
           "noValue": "No requests",
           "custom": {
@@ -1718,7 +1729,7 @@
       "type": "timeseries",
       "id": 21,
       "title": "Edge Functions",
-      "description": "Responses from Edge Functions through the gateway by status class.",
+      "description": "Responses per second from Edge Functions through the gateway by status class.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1737,7 +1748,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (envoy_response_code_class) (increase(envoy_cluster_upstream_rq_xx_total{envoy_cluster_name=\"functions\"}[$__interval])) > 0",
+          "expr": "sum by (envoy_response_code_class) (rate(envoy_cluster_upstream_rq_xx_total{envoy_cluster_name=\"functions\"}[$__rate_interval])) > 0",
           "legendFormat": "{{envoy_response_code_class}}xx",
           "instant": false,
           "range": true
@@ -1745,8 +1756,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 0,
+          "unit": "reqps",
           "min": 0,
           "noValue": "No requests",
           "custom": {
@@ -1839,7 +1849,7 @@
       "type": "timeseries",
       "id": 22,
       "title": "Storage",
-      "description": "Responses from Storage through the gateway by status class.",
+      "description": "Responses per second from Storage through the gateway by status class.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1858,7 +1868,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (envoy_response_code_class) (increase(envoy_cluster_upstream_rq_xx_total{envoy_cluster_name=\"storage\"}[$__interval])) > 0",
+          "expr": "sum by (envoy_response_code_class) (rate(envoy_cluster_upstream_rq_xx_total{envoy_cluster_name=\"storage\"}[$__rate_interval])) > 0",
           "legendFormat": "{{envoy_response_code_class}}xx",
           "instant": false,
           "range": true
@@ -1866,8 +1876,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 0,
+          "unit": "reqps",
           "min": 0,
           "noValue": "No requests",
           "custom": {
@@ -1960,7 +1969,7 @@
       "type": "timeseries",
       "id": 23,
       "title": "Realtime",
-      "description": "Responses from Realtime through the gateway by status class.",
+      "description": "Responses per second from Realtime through the gateway by status class.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1979,7 +1988,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (envoy_response_code_class) (increase(envoy_cluster_upstream_rq_xx_total{envoy_cluster_name=\"realtime\"}[$__interval])) > 0",
+          "expr": "sum by (envoy_response_code_class) (rate(envoy_cluster_upstream_rq_xx_total{envoy_cluster_name=\"realtime\"}[$__rate_interval])) > 0",
           "legendFormat": "{{envoy_response_code_class}}xx",
           "instant": false,
           "range": true
@@ -1987,8 +1996,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 0,
+          "unit": "reqps",
           "min": 0,
           "noValue": "No requests",
           "custom": {
