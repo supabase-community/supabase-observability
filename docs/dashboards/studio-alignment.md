@@ -93,6 +93,76 @@ The data behind the table is different from Studio's.
 - The table adds a 95th percentile latency column, which Studio's Overview
   does not show.
 
+The **API Gateway** bar chart and the table both link to the API Gateway
+dashboard, keeping the selected time range.
+
+## API Gateway dashboard
+
+Grafana loads the dashboard from `config/dashboards/gateway.json`. It follows
+the API Gateway page in Studio's Observability section and uses that page's
+chart names. Studio builds the page from the gateway's request logs. This
+dashboard reads the Envoy gateway's own metrics instead, so it works with any
+Prometheus-compatible metrics backend.
+
+### API Gateway
+
+The first row has Studio's four charts for the whole gateway.
+
+| Studio | This dashboard | Metric |
+|---|---|---|
+| Total Requests | Total Requests | `envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix="ingress_http"}` |
+| Response Errors | Response Errors, split into 4xx and 5xx | `envoy_http_downstream_rq_xx_total{envoy_http_conn_manager_prefix="ingress_http"}` for status classes 4 and 5 |
+| Response Speed | Response Speed, as an average and a 95th percentile | `envoy_cluster_upstream_rq_time_sum`, `envoy_cluster_upstream_rq_time_count` and `envoy_cluster_upstream_rq_time_bucket` for the five services |
+| Network Traffic | Network Traffic, as ingress and egress | `envoy_cluster_upstream_cx_tx_bytes_total` for ingress and `envoy_cluster_upstream_cx_rx_bytes_total` for egress, for the five services |
+| Requests by Geography | Not shown | Studio maps each request to its country from its request logs. Envoy's metrics carry no country. |
+| Top routes under Total Requests, Response Errors and Response Speed | Not shown | Envoy's metrics have no request path. |
+
+The metrics differ from Studio's logs in these ways.
+
+- **Total Requests**, **Response Errors** and **Network Traffic** draw each
+  bar as a rate per second, and the legend shows the total for the selected
+  time range. Studio draws a count for each interval.
+- **Total Requests** and **Response Errors** use the gateway's own totals,
+  the same ones as the Overview's API Gateway row. They include requests the
+  gateway answers itself, such as a 401 for a missing API key, and requests
+  to Studio and pg-meta. The `admin` prefix is left out, because those
+  requests are the metrics collector's own scrapes.
+- **Response Speed** uses the time the services take. Studio shows the
+  average time the origin takes to respond, and this panel shows the same
+  average plus a 95th percentile. It reads the per-service times instead of
+  the gateway's own time, because those are the times the origin takes.
+  Requests the gateway rejects itself never reach a service, so they have no
+  response time to count. Envoy records no response time for WebSocket
+  connections, so Realtime's response time covers only its HTTP API requests,
+  such as broadcasts sent over REST.
+- **Network Traffic** counts the bytes on the connections between the
+  gateway and the five services, headers included. Studio's chart shows
+  ingress only, as the sum of the `Content-Length` header of each request, so
+  the numbers here are larger. For egress, which is billed, Studio links to
+  the organization's Usage page. A self-hosted stack has no Usage page, so
+  this panel shows egress too, below the axis.
+
+### By service
+
+The second row repeats the four charts with one series for each service, in
+the order and with the names the Overview uses. Like the first row, the
+charts draw rates per second and show the totals in the legend.
+
+| Panel | Metric |
+|---|---|
+| Total Requests by service | `envoy_cluster_upstream_rq_total{envoy_response_code=""}` |
+| Response Errors by service | `envoy_cluster_upstream_rq_xx_total` for status classes 4 and 5 |
+| Response Speed by service | `envoy_cluster_upstream_rq_time_sum` divided by `envoy_cluster_upstream_rq_time_count` |
+| Network Traffic by service | `envoy_cluster_upstream_cx_tx_bytes_total` and `envoy_cluster_upstream_cx_rx_bytes_total` |
+
+`envoy_cluster_upstream_rq_total` needs `envoy_response_code=""`. Envoy
+also writes one series with that name for each response code, and the
+filter keeps only the series that counts every request, so each request is
+counted once. The `meta` and `studio` clusters are left out, because Studio
+does not list them as services. Requests to those two clusters, and the
+gateway's own 401 and 403 responses, are counted only in Total Requests and
+Response Errors in the first row.
+
 ## Auth dashboard
 
 Grafana loads the dashboard from `config/dashboards/auth.json`. It follows the

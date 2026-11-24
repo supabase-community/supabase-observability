@@ -25,7 +25,29 @@ where it differs.
 |---|---|
 | Needs attention | Is anything wrong right now? Each panel turns red at the threshold of one of Supabase's [detection checks](https://supabase.com/docs/guides/observability/detecting), or at a threshold that matters when you run the stack yourself. |
 | Database | How busy is Postgres, and how close are its connections and replication slots to their limits? Connections by role, database size, rollbacks, cache hits, deadlocks and replication slot headroom. |
-| Service health | Which service is failing? Requests, error rate, 95th percentile latency and status for each service behind the gateway, plus a bar chart of responses by status class for each one. |
+| Service health | Which service is failing? Requests, error rate, 95th percentile latency and status for each service behind the gateway, plus a bar chart of responses per second by status class for each one. |
+
+## Open the API Gateway dashboard
+
+Open <http://127.0.0.1:3000/d/supabase-gateway>, or select **API Gateway
+dashboard** in the menu of the API Gateway bar chart or the Service health
+table on the Overview. It is in the same **Supabase** folder.
+
+The dashboard follows the API Gateway page in Supabase Studio.
+[studio-alignment.md](studio-alignment.md#api-gateway-dashboard) lists where
+it matches Studio and where it differs.
+
+| Row | What it answers |
+|---|---|
+| API Gateway | How many requests does the gateway answer, how many fail, how fast are the services, and how much data goes through? Total Requests, Response Errors, Response Speed and Network Traffic for the whole gateway. |
+| By service | Which service do the requests, errors, slow responses or traffic come from? The same four charts with one series for each service. |
+
+If Response Errors shows 4xx responses that no service shows under
+**Response Errors by service**, the gateway rejected those requests itself,
+or they went to Studio or pg-meta, which the second row leaves out. A
+rejected request usually means a client sends a missing or wrong API key.
+[Request fails, but the service shows nothing](../logs/troubleshooting.md#request-fails-but-the-service-shows-nothing)
+shows how to find those requests in the gateway's logs.
 
 ## Open the Auth dashboard
 

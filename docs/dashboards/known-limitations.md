@@ -25,6 +25,9 @@ make, that the dashboards cannot show.
 | Add filter (Auth dashboard) | Studio filters the Auth API Gateway charts with fields from its request logs. Envoy's metrics have no request path or other log fields, so the dashboard has no filter. |
 | Provider filter (Auth dashboard) | Studio filters the Usage charts by sign-in provider from Auth's logs, and Auth's metrics have no provider. |
 | Top routes (Auth dashboard) | Envoy's metrics have no request path, so the Auth API Gateway row cannot list the busiest, failing or slowest routes the way Studio does. |
+| Requests by Geography (API Gateway dashboard) | Studio maps each request to its country from its request logs. Envoy's metrics carry no country. |
+| Top routes (API Gateway dashboard) | Envoy's metrics have no request path, so the API Gateway dashboard cannot list the busiest, failing or slowest routes the way Studio does. |
+| Kong gateway | The Overview's **Service health** row and the API Gateway dashboard read Envoy's metrics, so they stay empty when you run the Kong override. Supabase has marked the Kong override for removal in a future release, and Envoy is the default gateway. |
 
 ## Numbers that differ from Studio's or from Supabase's detection checks
 
@@ -39,3 +42,5 @@ make, that the dashboards cannot show.
 | Sign In Processing Time (Auth dashboard) | The panel times every successful request to `/token`, including token refreshes, which are faster than a password check, so its average is lower than Studio's. It shows percentiles where Studio shows the minimum and maximum. |
 | Response Speed (Auth dashboard) | The panel does not count requests the gateway rejected itself, because they never reach Auth and so have no response time. |
 | Network Traffic (Auth dashboard) | The panel counts every byte on the connection between the gateway and Auth, headers included. Studio's chart shows ingress only, as the sum of the `Content-Length` header of each request, so the panel's numbers are larger. |
+| Response Speed (API Gateway dashboard) | The panel does not count requests the gateway rejected itself, because they never reach a service and so have no response time. Realtime's response time covers only its HTTP API requests, such as broadcasts sent over REST, because Envoy records no response time for WebSocket connections. |
+| Network Traffic (API Gateway dashboard) | The panel counts every byte on the connections between the gateway and the services, headers included. Studio's chart shows ingress only, as the sum of the `Content-Length` header of each request, so the panel's numbers are larger. |
