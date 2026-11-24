@@ -163,6 +163,137 @@ does not list them as services. Requests to those two clusters, and the
 gateway's own 401 and 403 responses, are counted only in Total Requests and
 Response Errors in the first row.
 
+## Auth dashboard
+
+Grafana loads the dashboard from `config/dashboards/auth.json`. It follows the
+Auth page in Studio's Observability section and uses that page's chart names.
+Studio builds that page from Auth's logs and the gateway's request logs. This
+dashboard reads Auth's own metrics, which the metrics stack
+[scrapes from Auth's metrics port](../metrics/README.md#what-gets-scraped),
+and the Envoy gateway's metrics for the `auth` cluster, so it works with any
+Prometheus-compatible metrics backend.
+
+Auth's metrics count requests by endpoint, in `http_route`. Each chart below
+counts the requests to the endpoint that does that job. Auth's logs record
+each event with its type and its user, so Studio's user counts and its split
+by sign-in type cannot be reproduced from metrics.
+
+Every chart that counts requests, emails or bytes draws each bar as a rate
+per second, and the legend shows the total for the selected time range.
+Studio's charts draw a count for each interval.
+
+### Usage
+
+| Studio | This dashboard | Metric |
+|---|---|---|
+| Auth Activity | Not shown | Studio counts distinct users from Auth's logs, and Auth's metrics have no user. |
+| Sign In Attempts by Type | Sign In Attempts, split into succeeded and failed | `http_status_codes_total{http_route="/token"}` |
+| Sign Ups | Sign Ups | `http_status_codes_total{http_route="/signup"}` for 2xx status codes |
+| Password Reset Requests | Password Reset Requests | `http_status_codes_total{http_route="/recover"}` for 2xx status codes |
+| Provider filter | Not shown | Studio filters the Usage charts by sign-in provider from Auth's logs, and Auth's metrics have no provider. |
+
+- **Sign In Attempts** counts every request to `/token`, the endpoint that
+  handles every sign-in type. Studio splits successful sign-ins by type, such
+  as password, PKCE, refresh token and ID token. The type is the request's
+  `grant_type` parameter, which neither Auth's metrics nor Envoy's metrics
+  record, so this chart shows the succeeded and failed requests instead.
+- **Sign Ups** counts successful requests to `/signup`. Studio counts a
+  sign-up when Auth records a confirmed new user. With email confirmation on,
+  which is the default, that happens when the user opens the confirmation
+  link, so this chart also counts sign-ups that are never confirmed. Studio
+  also counts users who sign up through an OAuth provider, SSO, an invite or
+  the admin API, which do not use `/signup`.
+- **Password Reset Requests** counts successful requests to `/recover`. Auth
+  answers 200 for an email address that has no account too, so those
+  requests are counted. Studio counts Auth's recovery events, which Auth
+  records only for existing users, including magic links and one-time codes
+  sent to them.
+
+### Monitoring
+
+| Studio | This dashboard | Metric |
+|---|---|---|
+| API Gateway Auth Errors | API Gateway Auth Errors, with one series for each status code | `envoy_cluster_upstream_rq_total{envoy_cluster_name="auth"}` for status codes 400 to 599 |
+| Auth Errors by Code | Auth Errors by Route, with one series for each Auth endpoint | `http_status_codes_total` for status codes 400 to 599, by `http_route` |
+| Status Code filter | Not shown | **API Gateway Auth Errors** already shows one series for each status code. |
+
+Studio reads the error code, such as `invalid_credentials`, from the
+`x_sb_error_code` response header. Neither Envoy's metrics nor Auth's metrics
+carry it, so **Auth Errors by Route** shows which endpoint failed instead.
+
+Studio's **API Gateway Auth Errors** reads the gateway's request logs, so it
+also counts the 401 and 403 responses that the gateway returns itself when an
+API key is missing or wrong. Those requests never reach Auth, so this
+dashboard's **API Gateway Auth Errors** does not count them.
+
+### Performance
+
+| Studio | This dashboard | Metric |
+|---|---|---|
+| Sign In Processing Time, Sign In Processing Time Percentiles | Sign In Processing Time, as an average and the 50th, 95th and 99th percentiles | `http_server_request_duration_seconds{http_route="/token"}` for 2xx status codes |
+| Sign Up Processing Time, Sign Up Processing Time Percentiles | Sign Up Processing Time, as an average and the 50th, 95th and 99th percentiles | `http_server_request_duration_seconds{http_route="/signup"}` for 2xx status codes |
+
+- Studio shows the minimum and the maximum next to the average, and the
+  percentiles in a second chart. A histogram keeps no minimum or maximum, so
+  this dashboard shows the average and the percentiles in one chart.
+- The percentiles are estimated inside the histogram's buckets, which Auth
+  sets at 5, 10, 25, 50, 75, 100, 250 and 500 milliseconds and up.
+- **Sign In Processing Time** includes token refreshes. A refresh does not
+  check a password, so it is much faster than a sign-in, and the average is
+  lower than Studio's when clients refresh their sessions often.
+- The first requests after Auth starts, or after a route first returns a new
+  status code, do not appear in these charts until more requests follow,
+  because a rate needs two readings of the counter.
+
+### Auth API Gateway
+
+The fourth row has Studio's four charts for the requests that reach Auth.
+
+| Studio | This dashboard | Metric |
+|---|---|---|
+| Total Requests | Total Requests | `envoy_cluster_upstream_rq_total{envoy_cluster_name="auth",envoy_response_code=""}` |
+| Response Errors | Response Errors, split into 4xx and 5xx | `envoy_cluster_upstream_rq_xx_total{envoy_cluster_name="auth"}` for status classes 4 and 5 |
+| Response Speed | Response Speed, as an average and a 95th percentile | `envoy_cluster_upstream_rq_time_sum`, `envoy_cluster_upstream_rq_time_count` and `envoy_cluster_upstream_rq_time_bucket` for `auth` |
+| Network Traffic | Network Traffic, as ingress and egress | `envoy_cluster_upstream_cx_tx_bytes_total` for ingress and `envoy_cluster_upstream_cx_rx_bytes_total` for egress, for `auth` |
+| Top routes under Total Requests, Response Errors and Response Speed | Not shown | Envoy's metrics have no request path. |
+| Add filter | Not shown | Studio filters with fields from its request logs, and Envoy's metrics have no request path or other log fields. |
+
+`envoy_cluster_upstream_rq_total` needs `envoy_response_code=""`. Envoy also
+writes one series with that name for each response code, and the filter keeps
+only the series that counts every request, so each request is counted once.
+
+The numbers differ from Studio's in these ways.
+
+- **Total Requests** and **Response Errors** count the requests that reach
+  Auth. Studio counts every request to an `/auth` path in the gateway's
+  logs, which also includes the requests that the gateway rejects itself.
+- **Response Speed** shows the average that Studio shows, plus a 95th
+  percentile. Requests the gateway rejects itself never reach Auth, so they
+  have no response time to count.
+- **Network Traffic** counts the bytes on the connection between the gateway
+  and Auth, headers included. Studio's chart shows ingress only, as the sum
+  of the `Content-Length` header of each request, so the numbers here are
+  larger. For egress, which is billed, Studio links to the organization's
+  Usage page. A self-hosted stack has no Usage page, so this panel shows
+  egress too, below the axis.
+
+### Auth server
+
+The last row has no counterpart on Studio's Auth page. It reads Auth's own
+metrics.
+
+| Panel | Metric |
+|---|---|
+| Emails | `global_auth_email_send_operations_total` and `global_auth_email_send_errors_total` |
+| Email Rate Limit Hits | `gotrue_email_rate_limit_counter_total`, by `path` |
+| Database Query Time | `db_sql_latency_milliseconds_sum`, `db_sql_latency_milliseconds_count` and `db_sql_latency_milliseconds_bucket` |
+
+- **Emails** counts attempts. A failed email is in both Attempted and Failed,
+  so the number of emails that went out is Attempted minus Failed.
+- Auth's connection gauges read zero whenever no query is running at the
+  moment Auth is scraped, so they say little about load. The dashboard shows
+  how long queries take instead.
+
 ## Known limitations
 
 See [known-limitations.md](known-limitations.md).
